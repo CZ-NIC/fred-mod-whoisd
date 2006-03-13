@@ -13,6 +13,7 @@
 #include "apr.h"
 #include "apr_buckets.h"
 #include "apr_file_io.h"
+#include "apr_general.h"
 #include "apr_pools.h"
 #include "apr_strings.h"
 #include "apr_time.h"
@@ -20,12 +21,19 @@
 #include "scoreboard.h"
 #include "util_filter.h"
 
+/*
+ * Whois daemon accepts requests containing object name and returns information
+ * about that object. The only object, which this server serves information
+ * about, is currently a domain.
+ */
+
 #define WHOISD_VERSION	"0.1"
 #define DEFAULT_DISCLAIMER	"Domain Information over Whois protocol\n"
-#define INT_ERROR_MSG	"Internal server error occured when processing your request\n"
+#define INT_ERROR_MSG	"Internal server error occured when processing your\
+	request.\nPlease try later.\n"
 
+#define MIN_WHOIS_REQUEST_LENGTH	3 	/* minimal object name length */
 #define MAX_WHOIS_REQUEST_LENGTH	300 	/* should be enough */
-#define MIN_WHOIS_REQUEST_LENGTH	3 	/* minimal domain name length */
 
 module AP_MODULE_DECLARE_DATA whoisd_module;
 
@@ -34,7 +42,7 @@ module AP_MODULE_DECLARE_DATA whoisd_module;
  */
 typedef struct {
 	int	whoisd_enabled;
-	char *disclaimer_filename;
+	const char *disclaimer_filename;
 	char *disclaimer;
 } whoisd_server_conf;
 
@@ -60,6 +68,7 @@ static apr_status_t process_whois_request(request_rec *r)
 	whois_domain_restrictedinfo(result, r->uri, domain, registrar, techs, nameservers);
 	 */
 
+	/* TODO every line which is not actual responce to questing must have '%' */
 	/* TODO try what is flush arg */
 	apr_brigade_printf(bb, NULL, NULL, "Whoisd Server Version: %s\n",
 			WHOISD_VERSION);
@@ -86,7 +95,7 @@ static apr_status_t process_whois_request(request_rec *r)
 	/*
 	}
 	*/
-	
+
 	/* ok, finish it */
 	APR_BRIGADE_INSERT_TAIL(bb,
 			apr_bucket_eos_create(r->connection->bucket_alloc));
@@ -231,7 +240,7 @@ static int process_whois_connection(conn_rec *c)
 	 * each request has to be terminated by <CR><LF>, apr_get_brigade returns
 	 * whatever text is available, so we have to explicitly check for it
 	 */
-	if (r->uri[len - 1] != '\n' || r->uri[len - 2] != '\r') {
+	if (r->uri[len - 1] != APR_ASCII_LF || r->uri[len - 2] != APR_ASCII_CR) {
 		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
 				"Request is not terminated by <CR><LF>");
 		return HTTP_BAD_REQUEST;
@@ -247,16 +256,52 @@ static int process_whois_connection(conn_rec *c)
 }
 
 /**
- * Whois output filter. (TODO be more specific)
+ * Whois output filter.
+ * 1) Before every <LF>, which is not preceeded by <CR>, is added <CR>.
  */
 static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
-    return ap_pass_brigade(f->next, bb);
+	apr_bucket	*b, *bnew;
+	apr_size_t	len;
+	apr_status_t	status;
+	char *pos;
+	char *str;
+
+	for (b = APR_BRIGADE_FIRST(bb);
+		 b != APR_BRIGADE_SENTINEL(b);
+		 b = APR_BUCKET_NEXT(b)) {
+
+        status = apr_bucket_read(b, &str, &len, APR_NONBLOCK_READ);
+
+        if (status != APR_SUCCESS) {
+            return status;
+        }
+
+		/* while there is a match */
+		while ((pos = memchr(str, APR_ASCII_LF, len)) != NULL) {
+			apr_bucket_split(b, pos - str);
+			/* insert <CR> before <LF> if it isn't present */
+			if (pos == str || (*(pos - 1) != APR_ASCII_CR)) {
+				bnew = apr_bucket_heap_create("\r", 1, NULL,
+						f->c->bucket_alloc);
+				APR_BUCKET_INSERT_AFTER(b, bnew);
+				/* skip inserted bucket - avoid its examination in next turn */
+				b = APR_BUCKET_NEXT(b);
+			}
+		}
+	}
+
+	return ap_pass_brigade(f->next, bb);
 }
 
-static int postconfig_hook(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
+static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
 																server_rec *s)
 {
+	apr_file_t	*f;
+	apr_size_t	nbytes;
+	apr_status_t	status;
+	char	buf[101];
+	char	*res;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
 	/*
@@ -265,17 +310,49 @@ static int postconfig_hook(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
 	 */
 	if (sc->whoisd_enabled) {
 		if (sc->disclaimer_filename == NULL) {
-			ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+			ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s,
 			 "mod_whoisd: whoisd is enabled and disclaimer filename is not set");
-			sc->servername = apr_pstrdup(p, DEFAULT_SERVERNAME);
 			return 1;
 		}
 		else {
-			/* XXX continue
-			 * 1) open file disclaimer
-			 * 2) read contents
-			 * 3) close file disclaimer
-			 */
+			/* open file */
+			status = apr_file_open(&f, sc->disclaimer_filename, APR_FOPEN_READ,
+					APR_OS_DEFAULT, ptemp);
+			if (status != APR_SUCCESS) {
+				ap_log_error(APLOG_MARK, APLOG_CRIT, status, s,
+					"mod_whoisd: could not open file %s",
+					sc->disclaimer_filename);
+				return 1;
+			}
+			/* read the file */
+			res = NULL;
+			while (!apr_file_eof(f)) {
+				nbytes = 100;
+				status = apr_file_read(f, (void *) buf, &nbytes);
+				if (status != APR_SUCCESS) {
+					ap_log_error(APLOG_MARK, APLOG_CRIT, status, s,
+						"mod_whoisd: error when reading file %s",
+						sc->disclaimer_filename);
+					return 1;
+				}
+				buf[nbytes] = 0;
+				/* order of arguments is important (res might be NULL) */
+				res = apr_pstrcat(ptemp, buf, res, NULL);
+			}
+			/* close the file */
+			status = apr_file_close(f);
+			if (status != APR_SUCCESS) {
+				/*
+				 * error when closing file, is not crucial for server
+				 * operation, so we will just report the error and
+				 * continue in normal operation
+				 */
+				ap_log_error(APLOG_MARK, APLOG_CRIT, status, s,
+					"mod_whoisd: error when closing file %s",
+					sc->disclaimer_filename);
+			}
+
+			sc->disclaimer = apr_pstrdup(p, res);
 		}
 	}
 
@@ -308,7 +385,15 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *
         return err;
     }
 
-    sc->disclaimer_file = a1;
+	/* catch double definition of filename */
+	if (sc->disclaimer_filename != NULL) {
+		ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+			"mod_whoisd: more than one definition of DisclaimerFile");
+	}
+	else {
+		sc->disclaimer_filename = a1;
+	}
+
     return NULL;
 }
 
@@ -316,22 +401,21 @@ static const command_rec whoisd_cmds[] = {
     AP_INIT_FLAG("WhoisProtocol", set_whois_protocol, NULL, RSRC_CONF,
 			 "Whether this server is serving the whois protocol"),
 	AP_INIT_TAKE1("DisclaimerFile", set_disclaimer_file, NULL, RSRC_CONF,
-			 "File with disclaimer which is standard part of every response");
+			 "File with disclaimer which is standard part of every response"),
     { NULL }
 };
 
 static void *create_whoisd_config(apr_pool_t *p, server_rec *s)
 {
 	whoisd_server_conf *sc =
-	    (whoisd_server_conf *) apr_palloc(p, sizeof(whoisd_server_conf));
+	    (whoisd_server_conf *) apr_pcalloc(p, sizeof(*sc));
 
-    sc->whoisd_enabled = 0; /* by default is whoisd turned off */
 	return sc;
 }
 
 static void register_hooks(apr_pool_t *p)
 {
-	ap_hook_post_config(postconfig_hook, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_post_config(whoisd_postconfig_hook, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_process_connection(process_whois_connection, NULL, NULL, APR_HOOK_MIDDLE);
 
 	/* register whois filters */
