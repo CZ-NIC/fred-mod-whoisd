@@ -297,66 +297,35 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp,
 																server_rec *s)
 {
-	apr_file_t	*f;
-	apr_size_t	nbytes;
-	apr_status_t	status;
 	char	buf[101];
 	char	*res;
-	whoisd_server_conf *sc = (whoisd_server_conf *)
-		ap_get_module_config(s->module_config, &whoisd_module);
-	/*
-	 * We load content of disclaimer file in memory, so we don't have to
-	 * perform filesystem read upon every response.
-	 */
-	if (sc->whoisd_enabled) {
-		if (sc->disclaimer_filename == NULL) {
-			ap_log_error(APLOG_MARK, APLOG_CRIT, 0, s,
-			 "mod_whoisd: whoisd is enabled and disclaimer filename is not set");
-			return 1;
-		}
-		else {
-			/* open file */
-			status = apr_file_open(&f, sc->disclaimer_filename, APR_FOPEN_READ,
-					APR_OS_DEFAULT, ptemp);
-			if (status != APR_SUCCESS) {
-				ap_log_error(APLOG_MARK, APLOG_CRIT, status, s,
-					"mod_whoisd: could not open file %s",
-					sc->disclaimer_filename);
-				return 1;
-			}
-			/* read the file */
-			res = NULL;
-			while (!apr_file_eof(f)) {
-				nbytes = 100;
-				status = apr_file_read(f, (void *) buf, &nbytes);
-				if (status != APR_SUCCESS) {
-					ap_log_error(APLOG_MARK, APLOG_CRIT, status, s,
-						"mod_whoisd: error when reading file %s",
-						sc->disclaimer_filename);
-					return 1;
-				}
-				buf[nbytes] = 0;
-				/* order of arguments is important (res might be NULL) */
-				res = apr_pstrcat(ptemp, buf, res, NULL);
-			}
-			/* close the file */
-			status = apr_file_close(f);
-			if (status != APR_SUCCESS) {
-				/*
-				 * error when closing file, is not crucial for server
-				 * operation, so we will just report the error and
-				 * continue in normal operation
-				 */
-				ap_log_error(APLOG_MARK, APLOG_CRIT, status, s,
-					"mod_whoisd: error when closing file %s",
-					sc->disclaimer_filename);
-			}
+	whoisd_server_conf *sc;
+	int	err_seen = 0;
 
-			sc->disclaimer = apr_pstrdup(p, res);
+	/*
+	 * Iterate through available servers and if whoisd is enabled
+	 * do further checking
+	 */
+	while (s != NULL) {
+		sc = (whoisd_server_conf *) ap_get_module_config(s->module_config,
+				&whoisd_module);
+
+		if (sc->whoisd_enabled) {
+			if (sc->disclaimer_filename == NULL) {
+				ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+				 "mod_whoisd: whoisd is enabled and disclaimer filename is not set");
+				err_seen = 1;
+			}
 		}
+		/* this error is not critical, just notification to user */
+		else if (sc->disclaimer_filename != NULL) {
+			ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+			 "mod_whoisd: whoisd is not enabled but disclaimer filename is set");
+		}
+		s = s->next;
 	}
 
-	return OK;
+	return (err_seen) ? HTTP_INTERNAL_SERVER_ERROR : OK;
 }
 
 static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
@@ -376,6 +345,11 @@ static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
 
 static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *a1)
 {
+	char	buf[101];
+	char	*res;
+	apr_file_t	*f;
+	apr_size_t	nbytes;
+	apr_status_t	status;
     server_rec *s = cmd->server;
     whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
@@ -388,11 +362,48 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *
 	/* catch double definition of filename */
 	if (sc->disclaimer_filename != NULL) {
 		ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-			"mod_whoisd: more than one definition of DisclaimerFile");
+			"mod_whoisd: more than one definition of DisclaimerFile. All but\
+			the first one will be ignored");
+		return NULL;
 	}
-	else {
-		sc->disclaimer_filename = a1;
+
+	sc->disclaimer_filename = a1;
+
+	/* open file */
+	status = apr_file_open(&f, sc->disclaimer_filename, APR_FOPEN_READ,
+			APR_OS_DEFAULT, cmd->temp_pool);
+	if (status != APR_SUCCESS) {
+		return apr_psprintf(cmd->temp_pool,
+					"mod_whoisd: could not open file %s (disclaimer)",
+					sc->disclaimer_filename);
 	}
+	/* read the file */
+	res = NULL;
+	while (!apr_file_eof(f)) {
+		nbytes = 100;
+		status = apr_file_read(f, (void *) buf, &nbytes);
+		if (status != APR_SUCCESS) {
+			return apr_psprintf(cmd->temp_pool,
+					"mod_whoisd: error when reading file %s (disclaimer)",
+					sc->disclaimer_filename);
+		}
+		buf[nbytes] = 0;
+		/* order of arguments is important (res might be NULL) */
+		res = apr_pstrcat(cmd->temp_pool, buf, res, NULL);
+	}
+	/* close the file */
+	status = apr_file_close(f);
+	if (status != APR_SUCCESS) {
+		/*
+		 * error when closing file. Eventhough it is not crucial error,
+		 * we will rather quit and not continue in operation.
+		 */
+		return apr_psprintf(cmd->temp_pool,
+					"mod_whoisd: error when closing file %s",
+					sc->disclaimer_filename);
+	}
+
+	sc->disclaimer = apr_pstrdup(cmd->pool, res);
 
     return NULL;
 }
@@ -400,8 +411,8 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *
 static const command_rec whoisd_cmds[] = {
     AP_INIT_FLAG("WhoisProtocol", set_whois_protocol, NULL, RSRC_CONF,
 			 "Whether this server is serving the whois protocol"),
-	AP_INIT_TAKE1("DisclaimerFile", set_disclaimer_file, NULL, RSRC_CONF,
-			 "File with disclaimer which is standard part of every response"),
+	AP_INIT_TAKE1("WhoisDisclaimer", set_disclaimer_file, NULL, RSRC_CONF,
+		 "File name with disclaimer which is standard part of every whois response"),
     { NULL }
 };
 
