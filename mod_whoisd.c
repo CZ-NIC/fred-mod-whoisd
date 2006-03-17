@@ -30,7 +30,7 @@
 #define WHOISD_VERSION	"0.1"
 #define DEFAULT_DISCLAIMER	"Domain Information over Whois protocol\n"
 #define INT_ERROR_MSG	"Internal server error occured when processing your\
-	request.\nPlease try later.\n"
+request.\nPlease try again later.\n"
 
 #define MIN_WHOIS_REQUEST_LENGTH	3 	/* minimal object name length */
 #define MAX_WHOIS_REQUEST_LENGTH	300 	/* should be enough */
@@ -77,7 +77,7 @@ static apr_status_t process_whois_request(request_rec *r)
 	/* get time of response generation */
 	status = apr_time_exp_gmt(&now, apr_time_now()); /* get current time */
 	if (status != APR_SUCCESS) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, status, r->connection,
 					"Could not get current time! Using undefined value.");
 	}
 	apr_brigade_printf(bb, NULL, NULL,
@@ -101,7 +101,7 @@ static apr_status_t process_whois_request(request_rec *r)
 			apr_bucket_eos_create(r->connection->bucket_alloc));
 	status = ap_fflush(r->output_filters, bb);
 	if (status != APR_SUCCESS) {
-		  ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+		  ap_log_cerror(APLOG_MARK, APLOG_ERR, status, r->connection,
 						  "Error when sending response");
 		  return APR_EGENERAL;
 	}
@@ -141,12 +141,14 @@ static request_rec *create_request(conn_rec *c)
 	/* required burden when using http request struct for whois request */
     r->allowed_methods = ap_make_method_list(p, 2);
     r->headers_in      = apr_table_make(r->pool, 1);
-    r->subprocess_env  = NULL;
+    r->subprocess_env  = NULL; /* XXX */
     r->headers_out     = apr_table_make(r->pool, 1);
     r->err_headers_out = apr_table_make(r->pool, 1);
     r->notes           = apr_table_make(r->pool, 5);
     r->request_config  = ap_create_request_config(r->pool);
-    ap_run_create_request(r);
+	/* denotes that request doesn't contain any headers (simple http/0.9) */
+	r->assbackwards    = 1;
+    // ap_run_create_request(r);
 
     return r;
 }
@@ -173,14 +175,14 @@ static char *read_request(request_rec *r, apr_size_t *len)
 		status = ap_get_brigade(r->input_filters, bb, AP_MODE_GETLINE,
 									APR_BLOCK_READ, 0);
 		if (status != APR_SUCCESS) {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+			ap_log_cerror(APLOG_MARK, APLOG_ERR, status, r->connection,
 					"Error when reading request");
 			return NULL;
 		}
 		/* convert brigade into string */
 		status = apr_brigade_pflatten(bb, &buf, len, r->pool);
 		if (status != APR_SUCCESS) {
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+			ap_log_cerror(APLOG_MARK, APLOG_ERR, status, r->connection,
 					"Could not flatten apr_brigade!");
 			return NULL;
 		}
@@ -226,13 +228,13 @@ static int process_whois_connection(conn_rec *c)
 
 	/* check if request isn't too long */
 	if (len > MAX_WHOIS_REQUEST_LENGTH) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Request length too long (%d bytes)", len);
 		return HTTP_BAD_REQUEST;
 	}
 	/* request might be also too short (2 = <CR><LF>) */
 	if (len < MIN_WHOIS_REQUEST_LENGTH + 2) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Request length too short (%d bytes)", len);
 		return HTTP_BAD_REQUEST;
 	}
@@ -241,7 +243,7 @@ static int process_whois_connection(conn_rec *c)
 	 * whatever text is available, so we have to explicitly check for it
 	 */
 	if (r->uri[len - 1] != APR_ASCII_LF || r->uri[len - 2] != APR_ASCII_CR) {
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Request is not terminated by <CR><LF>");
 		return HTTP_BAD_REQUEST;
 	}
@@ -271,7 +273,7 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		 b != APR_BRIGADE_SENTINEL(b);
 		 b = APR_BUCKET_NEXT(b)) {
 
-        status = apr_bucket_read(b, &str, &len, APR_NONBLOCK_READ);
+        status = apr_bucket_read(b, (void **) &str, &len, APR_NONBLOCK_READ);
 
         if (status != APR_SUCCESS) {
             return status;
@@ -285,8 +287,13 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 				bnew = apr_bucket_heap_create("\r", 1, NULL,
 						f->c->bucket_alloc);
 				APR_BUCKET_INSERT_AFTER(b, bnew);
-				/* skip inserted bucket - avoid its examination in next turn */
-				b = APR_BUCKET_NEXT(b);
+				b = bnew; /* move to next bucket */
+				break;
+			}
+			else {
+				/* move ahead in examined string */
+				len = len - (pos - str) - 1;
+				str = pos + 1;
 			}
 		}
 	}
@@ -377,20 +384,22 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *
 					"mod_whoisd: could not open file %s (disclaimer)",
 					sc->disclaimer_filename);
 	}
+
 	/* read the file */
-	res = NULL;
-	while (!apr_file_eof(f)) {
+	res = apr_pstrdup(cmd->temp_pool, "");
+	nbytes = 100;
+	while ((status = apr_file_read(f, (void *) buf, &nbytes)) == APR_SUCCESS) {
 		nbytes = 100;
-		status = apr_file_read(f, (void *) buf, &nbytes);
-		if (status != APR_SUCCESS) {
-			return apr_psprintf(cmd->temp_pool,
-					"mod_whoisd: error when reading file %s (disclaimer)",
-					sc->disclaimer_filename);
-		}
 		buf[nbytes] = 0;
 		/* order of arguments is important (res might be NULL) */
 		res = apr_pstrcat(cmd->temp_pool, buf, res, NULL);
 	}
+	if (status != APR_EOF) {
+		return apr_psprintf(cmd->temp_pool,
+				"mod_whoisd: error when reading file %s (disclaimer)",
+				sc->disclaimer_filename);
+	}
+
 	/* close the file */
 	status = apr_file_close(f);
 	if (status != APR_SUCCESS) {
