@@ -54,6 +54,7 @@ typedef struct {
  */
 static apr_status_t process_whois_request(request_rec *r)
 {
+	char	pending_comment; /* pending new line (boolean) */
 	apr_status_t	status;
 	apr_time_exp_t	now;
 	apr_bucket_brigade *bb;
@@ -62,13 +63,7 @@ static apr_status_t process_whois_request(request_rec *r)
 		ap_get_module_config(s->module_config, &whoisd_module);
 
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
-	/*
-	 * 	Do the actual CORBA function call
-	 *
-	whois_domain_restrictedinfo(result, r->uri, domain, registrar, techs, nameservers);
-	 */
 
-	/* TODO every line which is not actual responce to questing must have '%' */
 	/* TODO try what is flush arg */
 	apr_brigade_printf(bb, NULL, NULL, "Whoisd Server Version: %s\n",
 			WHOISD_VERSION);
@@ -86,6 +81,56 @@ static apr_status_t process_whois_request(request_rec *r)
 		now.tm_min, now.tm_sec);
 
 	/*
+	 * Every line which doesn't contain actual data must be preceeded by
+	 * comment sign ('%').
+	 * Everything above is printed in a single bucket, nevertheless we
+	 * iterate through all buckets from brigade. That's less error prone,
+	 * because out assumption about one bucket might not hold.
+	 */
+	pending_comment = 1;
+	for (apr_bucket *b = APR_BRIGADE_FIRST(bb);
+		 b != APR_BRIGADE_SENTINEL(b);
+		 b = APR_BUCKET_NEXT(b)) {
+
+		/*
+		 * if we have found nl at the end of previous bucket, insert comment
+		 * sign before current bucket
+		 */
+		if (pending_comment) {
+			bnew = apr_bucket_heap_create("%% ", 2, NULL,
+					r->connection->bucket_alloc);
+			APR_BUCKET_INSERT_BEFORE(b, bnew);
+			pending_comment = 0;
+		}
+
+        status = apr_bucket_read(b, &str, &len, APR_NONBLOCK_READ);
+        if (status != APR_SUCCESS) {
+            return status;
+        }
+
+		/* while there is a match */
+		if ((pos = memchr(str, APR_ASCII_LF, len)) != NULL) {
+			/*
+			 * if ln is last char in bucket, don't split the bucket and
+			 * defer comment insertion.
+			 */
+			if (pos - str == len - 1) {
+				pending_comment = 1;
+			}
+			else {
+				apr_bucket_split(b, pos - str + 1);
+				bnew = apr_bucket_heap_create("%% ", 2, NULL,
+						r->connection->bucket_alloc);
+				APR_BUCKET_INSERT_AFTER(b, bnew);
+				b = bnew; /* move one bucket ahead */
+			}
+		}
+	}
+
+	/*
+	 * 	Do the actual CORBA function call
+	 *
+	whois_domain_restrictedinfo(result, r->uri, domain, registrar, techs, nameservers);
 	if (result == OK) {
 		generate domain info
 	}
@@ -112,6 +157,10 @@ static apr_status_t process_whois_request(request_rec *r)
 
 /**
  * Map whois request to http request.
+ * The created request_rec cannot be used in standard routines in
+ * place of http request_rec. Some fields are not properly initialized
+ * becauseof a differences between http and whois request.
+ *
  * @param c Actual connection
  * @ret Newly created request
  */
@@ -137,18 +186,33 @@ static request_rec *create_request(conn_rec *c)
 	r->request_time    = apr_time_now();
 	r->no_cache        = 1;
 	r->no_local_copy   = 1;
+	r->assbackwards    = 1; /* denotes http/0.9 request (without headers) */
 
-	/* required burden when using http request struct for whois request */
+    /*
+	 * The problem with ap_run_create_request is that it runs whatever
+	 * is registered for request creation. Those hooks assume that they
+	 * operate on http request, which is true only partialy. Although
+	 * we map whois request to http's request_rec, not all operations
+	 * on whois-http request are meaningful. For example registering of
+	 * default http output filters, is causing some troubles. What more,
+	 * any loaded module can register hook for request creation and take
+	 * action that would be appropriate for http request but not for whois
+	 * request. You can uncomment following part and make whois
+	 * request as much as possible "http friendly", but you have been warned.
+
+	// required burden when using http request struct for whois request
     r->allowed_methods = ap_make_method_list(p, 2);
     r->headers_in      = apr_table_make(r->pool, 1);
-    r->subprocess_env  = NULL; /* XXX */
+    r->subprocess_env  = NULL; // Why NULL? Don't know - copied from mod_pop3
     r->headers_out     = apr_table_make(r->pool, 1);
     r->err_headers_out = apr_table_make(r->pool, 1);
     r->notes           = apr_table_make(r->pool, 5);
     r->request_config  = ap_create_request_config(r->pool);
-	/* denotes that request doesn't contain any headers (simple http/0.9) */
+
+	// denotes that request doesn't contain any headers (simple http/0.9)
 	r->assbackwards    = 1;
-    // ap_run_create_request(r);
+	ap_run_create_request(r);
+	*/
 
     return r;
 }
@@ -259,7 +323,7 @@ static int process_whois_connection(conn_rec *c)
 
 /**
  * Whois output filter.
- * 1) Before every <LF>, which is not preceeded by <CR>, is added <CR>.
+ * In front of every <LF>, which is not preceeded by <CR>, is added <CR>.
  */
 static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
@@ -279,21 +343,23 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
             return status;
         }
 
-		/* while there is a match */
-		while ((pos = memchr(str, APR_ASCII_LF, len)) != NULL) {
-			apr_bucket_split(b, pos - str);
-			/* insert <CR> before <LF> if it isn't present */
-			if (pos == str || (*(pos - 1) != APR_ASCII_CR)) {
-				bnew = apr_bucket_heap_create("\r", 1, NULL,
-						f->c->bucket_alloc);
-				APR_BUCKET_INSERT_AFTER(b, bnew);
-				b = bnew; /* move to next bucket */
-				break;
+		/*
+		 * while there is a match cut the bucket in 3 parts ... '\n' ... and
+		 * insert <CR> where apropriate
+		 */
+		if ((pos = memchr(str, APR_ASCII_LF, len)) != NULL) {
+			if (pos == str) {
+				bnew = apr_bucket_heap_create("\r", 1, NULL, f->c->bucket_alloc);
+				APR_BUCKET_INSERT_BEFORE(b, bnew);
 			}
-			else {
-				/* move ahead in examined string */
-				len = len - (pos - str) - 1;
-				str = pos + 1;
+			else if (*(pos - 1) != APR_ASCII_CR) {
+				apr_bucket_split(b, pos - str);
+				bnew = apr_bucket_heap_create("\r", 1, NULL, f->c->bucket_alloc);
+				APR_BUCKET_INSERT_BEFORE(b, bnew);
+			}
+
+			if (pos - str < len - 1) {
+				apr_bucket_split(b, pos - str + 1);
 			}
 		}
 	}
@@ -386,13 +452,16 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *
 	}
 
 	/* read the file */
-	res = apr_pstrdup(cmd->temp_pool, "");
+	res = NULL;
 	nbytes = 100;
 	while ((status = apr_file_read(f, (void *) buf, &nbytes)) == APR_SUCCESS) {
-		nbytes = 100;
 		buf[nbytes] = 0;
-		/* order of arguments is important (res might be NULL) */
+		/*
+		 * order of arguments IS important, last arg must be null
+		 * (res might be NULL)
+		 */
 		res = apr_pstrcat(cmd->temp_pool, buf, res, NULL);
+		nbytes = 100;
 	}
 	if (status != APR_EOF) {
 		return apr_psprintf(cmd->temp_pool,
