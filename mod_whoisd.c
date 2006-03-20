@@ -14,6 +14,7 @@
 #include "apr_buckets.h"
 #include "apr_file_io.h"
 #include "apr_general.h"
+#include "apr_lib.h"	/* apr_isdigit() */
 #include "apr_pools.h"
 #include "apr_strings.h"
 #include "apr_time.h"
@@ -27,9 +28,9 @@
  * about, is currently a domain.
  */
 
-#define WHOISD_VERSION	"0.1"
+#define WHOISD_VERSION	"testing"
 #define DEFAULT_DISCLAIMER	"Domain Information over Whois protocol\n"
-#define INT_ERROR_MSG	"Internal server error occured when processing your\
+#define INT_ERROR_MSG	"Internal server error occured when processing your \
 request.\nPlease try again later.\n"
 
 #define MIN_WHOIS_REQUEST_LENGTH	3 	/* minimal object name length */
@@ -44,6 +45,7 @@ typedef struct {
 	int	whoisd_enabled;
 	const char *disclaimer_filename;
 	char *disclaimer;
+	apr_interval_time_t	delay; /* microseconds */
 } whoisd_server_conf;
 
 /**
@@ -55,9 +57,11 @@ typedef struct {
 static apr_status_t process_whois_request(request_rec *r)
 {
 	char	pending_comment; /* pending new line (boolean) */
+	apr_time_t	time1, time2; /* meassuring of server latency */
 	apr_status_t	status;
 	apr_time_exp_t	now;
 	apr_bucket_brigade *bb;
+	apr_bucket	*b;
 	server_rec	*s = r->server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
@@ -88,16 +92,19 @@ static apr_status_t process_whois_request(request_rec *r)
 	 * because out assumption about one bucket might not hold.
 	 */
 	pending_comment = 1;
-	for (apr_bucket *b = APR_BRIGADE_FIRST(bb);
-		 b != APR_BRIGADE_SENTINEL(b);
+	for (b = APR_BRIGADE_FIRST(bb);
+		 b != APR_BRIGADE_SENTINEL(bb);
 		 b = APR_BUCKET_NEXT(b)) {
+		char *str, *pos;
+		apr_size_t	len;
+		apr_bucket *bnew;
 
 		/*
 		 * if we have found nl at the end of previous bucket, insert comment
 		 * sign before current bucket
 		 */
 		if (pending_comment) {
-			bnew = apr_bucket_heap_create("%% ", 2, NULL,
+			bnew = apr_bucket_heap_create("% ", 2, NULL,
 					r->connection->bucket_alloc);
 			APR_BUCKET_INSERT_BEFORE(b, bnew);
 			pending_comment = 0;
@@ -119,7 +126,7 @@ static apr_status_t process_whois_request(request_rec *r)
 			}
 			else {
 				apr_bucket_split(b, pos - str + 1);
-				bnew = apr_bucket_heap_create("%% ", 2, NULL,
+				bnew = apr_bucket_heap_create("% ", 2, NULL,
 						r->connection->bucket_alloc);
 				APR_BUCKET_INSERT_AFTER(b, bnew);
 				b = bnew; /* move one bucket ahead */
@@ -127,15 +134,23 @@ static apr_status_t process_whois_request(request_rec *r)
 		}
 	}
 
+	time1 = apr_time_now();
 	/*
 	 * 	Do the actual CORBA function call
 	 *
 	whois_domain_restrictedinfo(result, r->uri, domain, registrar, techs, nameservers);
+	time2 = apr_time_now();
 	if (result == OK) {
+		ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
+					"Request for \"%s\" processed in %ld mili-seconds",
+					r->uri, (time2 - time1) / 1000);
 		generate domain info
 	}
 	else {
 	*/
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
+					"Request for \"%s\" failed .. perhaps server is not running?!",
+					r->uri);
 		apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
 	/*
 	}
@@ -269,12 +284,12 @@ static int process_whois_connection(conn_rec *c)
 	apr_status_t	status;
 	apr_size_t	len;
 
-	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
-			"whois connection handler (whoisd_enabled=%d)", sc->whoisd_enabled);
 	/* do nothing if whoisd is disabled */
 	if (!sc->whoisd_enabled)
 		return DECLINED;
 
+	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
+			"whois connection handler enabled");
 	ap_update_child_status(c->sbh, SERVER_BUSY_READ, NULL);
 
 	/* add connection output filters */
@@ -314,6 +329,9 @@ static int process_whois_connection(conn_rec *c)
 	/* strip <CR><LF> characters */
 	r->uri[len - 2] = 0;
 
+	/* defer request - prevents datamining */
+	apr_sleep(sc->delay);
+
 	/* process request */
 	status = process_whois_request(r);
 	if (status != APR_SUCCESS) return HTTP_INTERNAL_SERVER_ERROR;
@@ -334,14 +352,16 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	char *str;
 
 	for (b = APR_BRIGADE_FIRST(bb);
-		 b != APR_BRIGADE_SENTINEL(b);
+		 b != APR_BRIGADE_SENTINEL(bb);
 		 b = APR_BUCKET_NEXT(b)) {
 
-        status = apr_bucket_read(b, (void **) &str, &len, APR_NONBLOCK_READ);
+        status = apr_bucket_read(b, &str, &len, APR_NONBLOCK_READ);
 
         if (status != APR_SUCCESS) {
             return status;
         }
+		/* not all buckets contain string (EOS, FLUSH) */
+		if (str == NULL) continue;
 
 		/*
 		 * while there is a match cut the bucket in 3 parts ... '\n' ... and
@@ -351,15 +371,10 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 			if (pos == str) {
 				bnew = apr_bucket_heap_create("\r", 1, NULL, f->c->bucket_alloc);
 				APR_BUCKET_INSERT_BEFORE(b, bnew);
+				if (len > 1) apr_bucket_split(b, 1);
 			}
 			else if (*(pos - 1) != APR_ASCII_CR) {
 				apr_bucket_split(b, pos - str);
-				bnew = apr_bucket_heap_create("\r", 1, NULL, f->c->bucket_alloc);
-				APR_BUCKET_INSERT_BEFORE(b, bnew);
-			}
-
-			if (pos - str < len - 1) {
-				apr_bucket_split(b, pos - str + 1);
 			}
 		}
 	}
@@ -486,11 +501,38 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy, const char *
     return NULL;
 }
 
+static const char *set_whois_delay(cmd_parms *cmd, void *dummy, const char *a1)
+{
+	char	*p;
+    server_rec *s = cmd->server;
+    whoisd_server_conf *sc = (whoisd_server_conf *)
+		ap_get_module_config(s->module_config, &whoisd_module);
+
+	const char *err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE|NOT_IN_LIMIT);
+    if (err) {
+        return err;
+    }
+
+	/* do some basic checking */
+	p = a1;
+	while (*p)
+		if (!apr_isdigit(*(p++))) return "WhoisDelay value is not a number";
+	if (strlen(a1) > 2)
+		return "WhoisDelay value is out of range 0 .. 99";
+
+	/* sleep() accepts microseconds so convert seconds to microseconds */
+    sc->delay = atoi(a1) * 1000000;
+    return NULL;
+}
+
 static const command_rec whoisd_cmds[] = {
     AP_INIT_FLAG("WhoisProtocol", set_whois_protocol, NULL, RSRC_CONF,
 			 "Whether this server is serving the whois protocol"),
 	AP_INIT_TAKE1("WhoisDisclaimer", set_disclaimer_file, NULL, RSRC_CONF,
 		 "File name with disclaimer which is standard part of every whois response"),
+	AP_INIT_TAKE1("WhoisDelay", set_whois_delay, NULL, RSRC_CONF,
+		 "Number of seconds the responce to client will be defered. "
+		 "Number must be in range 0 to 99"),
     { NULL }
 };
 
@@ -522,5 +564,4 @@ module AP_MODULE_DECLARE_DATA whoisd_module = {
     register_hooks              /* register hooks */
 };
 
-/* TODO: pozdrzet odpoved o kratky casovy interval */
 /* vi:set ts=4 sw=4: */
