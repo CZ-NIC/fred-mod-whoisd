@@ -6,7 +6,6 @@
 #include "http_log.h"
 #define CORE_PRIVATE
 #include "http_config.h"
-#include "http_protocol.h"	/* request_rec initializers */
 #include "http_connection.h"	/* connection hooks */
 #undef CORE_PRIVATE
 
@@ -149,8 +148,8 @@ static apr_status_t process_whois_request(request_rec *r)
 	else {
 	*/
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
-					"Request for \"%s\" failed .. perhaps server is not running?!",
-					r->uri);
+			"Request for \"%s\" failed .. perhaps CORBA server is not running?!",
+			r->uri);
 		apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
 	/*
 	}
@@ -276,13 +275,12 @@ static char *read_request(request_rec *r, apr_size_t *len)
  */
 static int process_whois_connection(conn_rec *c)
 {
-	int	eor;	/* end of request (domain name) */
+	apr_status_t	status;
+	apr_size_t	len;
 	request_rec	*r;
 	server_rec	*s = c->base_server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
-	apr_status_t	status;
-	apr_size_t	len;
 
 	/* do nothing if whoisd is disabled */
 	if (!sc->whoisd_enabled)
