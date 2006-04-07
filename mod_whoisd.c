@@ -21,6 +21,9 @@
 #include "scoreboard.h"
 #include "util_filter.h"
 
+
+#include "whois-client.h"
+
 /*
  * Whois daemon accepts requests containing object name and returns information
  * about that object. The only object, which this server serves information
@@ -55,6 +58,7 @@ typedef struct {
  */
 static apr_status_t process_whois_request(request_rec *r)
 {
+	int	rc;
 	char	pending_comment; /* pending new line (boolean) */
 	apr_time_t	time1, time2; /* meassuring of server latency */
 	apr_status_t	status;
@@ -136,24 +140,23 @@ static apr_status_t process_whois_request(request_rec *r)
 	time1 = apr_time_now();
 	/*
 	 * 	Do the actual CORBA function call
-	 *
-	whois_domain_restrictedinfo(result, r->uri, domain, registrar, techs, nameservers);
+	 */
+	rc = whois_corba_call(r->uri);
 	time2 = apr_time_now();
-	if (result == OK) {
+	if (rc == CORBA_OK) {
 		ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
 					"Request for \"%s\" processed in %ld mili-seconds",
 					r->uri, (time2 - time1) / 1000);
-		generate domain info
+		/* generate domain info */
+		apr_brigade_printf(bb, NULL, NULL, "Domain:    vporadku\n");
+		//apr_brigade_printf(bb, NULL, NULL, "Domain:    %s", domain_info->name);
 	}
 	else {
-	*/
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
 			"Request for \"%s\" failed .. perhaps CORBA server is not running?!",
 			r->uri);
 		apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
-	/*
 	}
-	*/
 
 	/* ok, finish it */
 	APR_BRIGADE_INSERT_TAIL(bb,
