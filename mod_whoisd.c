@@ -3,6 +3,7 @@
  */
 
 #include "httpd.h"
+
 #include "http_log.h"
 #define CORE_PRIVATE
 #include "http_config.h"
@@ -13,6 +14,12 @@
 #include "apr_buckets.h"
 #include "apr_file_io.h"
 #include "apr_general.h"
+
+#include "apr_file_io.h"
+#ifndef APR_FOPEN_READ
+#define APR_FOPEN_READ	APR_READ
+#endif
+
 #include "apr_lib.h"	/* apr_isdigit() */
 #include "apr_pools.h"
 #include "apr_strings.h"
@@ -49,6 +56,16 @@ typedef struct {
 	char *disclaimer;
 	apr_interval_time_t	delay; /* microseconds */
 } whoisd_server_conf;
+
+/**
+ * This is wrapper function for compatibility reason.
+ */
+static void ap_log_cerror(const char *file, int line, int level,
+                             apr_status_t status, const conn_rec *c,
+                             const char *fmt, ...)
+{
+	ap_log_error(file, line, level, status, c->base_server, "error");
+}
 
 /**
  * Whois request processor.

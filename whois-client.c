@@ -38,7 +38,6 @@ client_shutdown (int sig)
         if (global_orb != CORBA_OBJECT_NIL)
         {
                 CORBA_ORB_shutdown (global_orb, FALSE, local_ev);
-                etk_abort_if_exception (local_ev, "caught exception");
         }
 }
  
