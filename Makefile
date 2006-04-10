@@ -4,11 +4,13 @@
 ##
 
 builddir=.
-top_srcdir=/etc/httpd
-top_builddir=/etc/httpd
-CORBA_OBJS=whois-client.lo ccReg-common.lo  ccReg-stubs.lo examples-toolkit.lo
-include /usr/lib/httpd/build/special.mk
-IDLOUT    = ccReg-common.c  ccReg-skels.c  ccReg-stubs.c  ccReg.h
+top_srcdir=~/apache.org/chroot
+top_builddir=~/apache.org/chroot
+CORBA_OBJS=whois-client.lo ccReg-common.lo  ccReg-stubs.lo
+IDLOUT    = ccReg-common.c  ccReg-stubs.c  ccReg.h
+ORBIT_IDL = orbit-idl-2
+
+include ~/apache.org/chroot/build/special.mk
 
 #   the used tools
 APXS=apxs
@@ -25,8 +27,10 @@ all: local-shared-build
 #   install the shared object file into Apache 
 install: install-modules
 
-$(IDLOUT): idl/ccReg.idl
-	$(ORBIT_IDL) idl/ccReg.idl
+$(CORBA_OBJS):  $(IDLOUT)
+
+$(IDLOUT): ../cr/idl/ccReg.idl
+	$(ORBIT_IDL) ../cr/idl/ccReg.idl
 
 clean:
-	-rm $(IDLOUT)
+	rm -f $(IDLOUT)

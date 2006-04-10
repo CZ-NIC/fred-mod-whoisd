@@ -1,143 +1,124 @@
-
-/*
- * Echo client program.. Hacked by Ewan Birney <birney@sanger.ac.uk>
- * from echo test suite, update for ORBit2 by Frank Rehberger
- * <F.Rehberger@xtradyne.de>
- *
- * Client reads object reference (IOR) from local file 'echo.ior' and
- * forwards console input to echo-server. A dot . as single character
- * in input terminates the client.
+/**
+ * Copyright statement ;)
  */
 
-
- 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <orbit/orbit.h>
 
-/*
- * This header file was generated from the idl
- */
-
+/* This header file was generated from the idl */
 #include "ccReg.h"
 #include "whois-client.h"
 
+#define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
+
 static CORBA_ORB  global_orb = CORBA_OBJECT_NIL; /* global orb */
  
-/* Is called in case of process signals. it invokes CORBA_ORB_shutdown()
- * function, which will terminate the processes main loop.
- */
-static
-void
-client_shutdown (int sig)
-{
-        CORBA_Environment  local_ev[1];
-        CORBA_exception_init(local_ev);
- 
-        if (global_orb != CORBA_OBJECT_NIL)
-        {
-                CORBA_ORB_shutdown (global_orb, FALSE, local_ev);
-        }
-}
- 
-        
-/* Inits ORB @orb using @argv arguments for configuration. For each
- * ORBit options consumed from vector @argv the counter of @argc_ptr
- * will be decremented. Signal handler is set to call
- * echo_client_shutdown function in case of SIGINT and SIGTERM
- * signals.  If error occures @ev points to exception object on
- * return.
- */
-static
-void
-client_init (CORBA_ORB         *orb,
-             CORBA_Environment *ev)
-{
-        /* create Object Request Broker (ORB) */
-        (*orb) = CORBA_ORB_init(0, NULL, "orbit-local-orb", ev);
-        if (etk_raised_exception(ev)) return;
-}
-
-/* Releases @servant object and finally destroys @orb. If error
- * occures @ev points to exception object on return.
- */
-static
-void
-client_cleanup (CORBA_ORB                 orb,
-                CORBA_Object              service,
-                CORBA_Environment        *ev)
-{
-        /* releasing managed object */
-        CORBA_Object_release(service, ev);
-        if (etk_raised_exception(ev)) return;
- 
-        /* tear down the ORB */
-        if (orb != CORBA_OBJECT_NIL)
-        {
-                /* going to destroy orb.. */
-                CORBA_ORB_destroy(orb, ev);
-                if (etk_raised_exception(ev)) return;
-        }
-}
 
 /**
- *
+ * Read string from stream.
  */
-/* static */
-/* CORBA_Object */
-/* client_import_service_from_stream (CORBA_ORB          orb, */
-/* 				   FILE              *stream, */
-/* 				   CORBA_Environment *ev) */
-/* { */
-/* 	CORBA_Object obj = CORBA_OBJECT_NIL; */
-/* 	gchar *objref=NULL; */
-    
-/* 	fscanf (stream, "%as", &objref);  /\* FIXME, handle input error *\/  */
-	
-/* 	obj = (CORBA_Object) CORBA_ORB_string_to_object (global_orb, */
-/* 							 objref,  */
-/* 							 ev); */
-/* 	free (objref); */
-	
-/* 	return obj; */
-/* } */
+static gchar*
+read_string_from_stream(FILE *stream)
+{
+	gulong length;
+	gchar *objref;
+	int c;
+	int i = 0;
 
-/**
- *
+	length = 4 * 1024; /* should suffice ordinary IOR string */
+	objref = g_malloc0(length * sizeof (gchar));
+	if (objref == NULL) return NULL;
 
- */
-/* static */
-/* CORBA_Object */
-/* client_import_service_from_file (CORBA_ORB          orb, */
-/* 				 char              *filename, */
-/* 				 CORBA_Environment *ev) */
-/* { */
-/*         CORBA_Object  obj    = NULL; */
-/*         FILE         *file   = NULL; */
- 
-/*         /\* write objref to file *\/ */
-         
-/*         if ((file=fopen(filename, "r"))==NULL) */
-/*                 g_error ("could not open %s\n", filename); */
-    
-/* 	obj=client_import_service_from_stream (orb, file, ev); */
-	
-/* 	fclose (file); */
+	/* skip leading white space */
+	while ((c = fgetc(stream)) !=EOF && g_ascii_isspace(c));
+	/* POST: c==EOF or c=first character */
 
-/* 	return obj; */
-/* } */
+	if (c != EOF) {
+		/* append c to string while more c exist and c not white space */
+		do {
+			/* check size */
+			if (i >= length - 1) {
+				length *= 2;
+				objref = g_realloc(objref, length);
+			}
+			objref[i++] = c;
+		}while ((c = fgetc(stream)) != EOF && !g_ascii_isspace(c));
+	}
+	/* terminate string with \0 */
+	objref[i] = '\0';
+
+	return objref;
+}
 
 
 /**
- *
+ * Import object from file.
  */
-static void client_run (const char *domain, ccReg_Whois service, CORBA_Environment *ev)
+static CORBA_Object
+import_object_from_file (CORBA_ORB orb, CORBA_char *filename,
+			      CORBA_Environment *ev)
 {
-        ccReg_DomainWhois *dm;
+        FILE         *file;
+	gchar        *objref;
+        CORBA_Object  obj = CORBA_OBJECT_NIL;
+  
+        if ((file = fopen(filename, "r")) == NULL) {
+		ev->_major = CORBA_SYSTEM_EXCEPTION;
+		return CORBA_OBJECT_NIL;		
+     	}
+	objref = read_string_from_stream(file);
+
+	if (!objref || strlen(objref) == 0) {
+		if (objref) g_free (objref);
+		ev->_major = CORBA_SYSTEM_EXCEPTION;
+		fclose (file);
+		return CORBA_OBJECT_NIL;		
+	}
+
+	obj = (CORBA_Object) CORBA_ORB_string_to_object(orb, objref, ev);
+	free (objref);
+
+        fclose (file);
+        return obj;
+}
+ 
+/**
+ * Get domain info. If there is no such a registered domain, NULL is
+ * returned.
+ * @par domain Domain to find
+ * @par service Corba service
+ * @par ev Corba environment
+ * @par wd Whois data (domain info)
+ */
+static void
+client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
+		whois_data_t *wd)
+{
+        ccReg_DomainWhois *dm = NULL;
 
         dm =  ccReg_Whois_Domain(service , domain , ev);
-        fprintf(stderr, "get  [%s]  %s %s\n", dm->name, dm->registrarName, dm->ns);
+	if (raised_exception(ev)) {
+		if (dm != NULL) CORBA_free(dm);
+		return;
+	}
+
+	/* check if there is such a registered domain */
+	if (dm->stat == 1) {
+		if ((wd->nameservers = malloc(dm->ns._length)) == NULL) {
+			ev->_major = CORBA_SYSTEM_EXCEPTION;
+			CORBA_free (dm);
+			return;
+		}
+		wd->created = dm->created;
+		wd->expired = dm->expired;
+		wd->registrarName = strdup(dm->registrarName);
+		wd->registrarUrl = strdup(dm->registrarUrl);
+		memcpy(wd->nameservers, dm->ns._buffer, dm->ns._length);
+		wd->ns_length = dm->ns._length;
+	}
 
         CORBA_free (dm);
 }
@@ -146,42 +127,51 @@ static void client_run (const char *domain, ccReg_Whois service, CORBA_Environme
  * main 
  */
 int
-whois_corba_call(const char *domain)
+whois_corba_call(const char *domain, whois_data_t *wd)
 {
 	CORBA_char filename[] = "/tmp/ccWhois.ref";
-        
-	ccReg_Whois e_service = CORBA_OBJECT_NIL;
-
         CORBA_Environment ev[1];
         CORBA_exception_init(ev);
+	ccReg_Whois e_service = CORBA_OBJECT_NIL;
+	int	rc;
 
-	/* XXX Should we check for client_cleanup success? */
-
-	client_init (&global_orb, ev);
-	if (etk_raised_exception(ev)) {
+        global_orb = CORBA_ORB_init(0, NULL, "orbit-local-orb", ev);
+	if (raised_exception(ev)) {
 		if (global_orb != CORBA_OBJECT_NIL)
 			CORBA_ORB_destroy(global_orb, ev);
 		return CORBA_INIT_FAILED;
 	}
 
-	e_service = (ccReg_Whois) etk_import_object_from_file (global_orb,
-							   filename,
-							   ev);
-	if (etk_raised_exception(ev)) {
-		client_cleanup (global_orb, e_service, ev);
+	e_service = (ccReg_Whois)
+		import_object_from_file(global_orb, filename, ev);
+	if (raised_exception(ev)) {
+		/* releasing managed object */
+		CORBA_Object_release(e_service, ev);
+		/* tear down the ORB */
+		if (global_orb != CORBA_OBJECT_NIL)
+			CORBA_ORB_destroy(global_orb, ev);
 		return CORBA_IMPORT_FAILED;
 	}
 
-	client_run (domain, e_service, ev);
+	client_run(domain, e_service, ev, wd);
 
-	if (etk_raised_exception(ev)) {
-		client_cleanup (global_orb, e_service, ev);
-		return CORBA_SERVICE_FAILED;
-	}
+	/* was everything OK? */
+	if (raised_exception(ev)) rc = CORBA_SERVICE_FAILED;
+	else rc = CORBA_OK;
  
-	client_cleanup (global_orb, e_service, ev);
+	/* releasing managed object */
+	CORBA_Object_release(e_service, ev);
+	/* tear down the ORB */
+	if (global_orb != CORBA_OBJECT_NIL) CORBA_ORB_destroy(global_orb, ev);
  
-        return CORBA_OK;
+        return rc;
 }
 
-int main(int argc, char *argv[]) { return 0; }
+void
+whois_release_data(whois_data_t *wd)
+{
+	assert (wd != NULL);
+	free(wd->registrarName);
+	free(wd->registrarUrl);
+	free(wd->nameservers);
+}
