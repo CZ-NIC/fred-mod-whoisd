@@ -15,8 +15,6 @@
 
 #define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
 
-static CORBA_ORB  global_orb = CORBA_OBJECT_NIL; /* global orb */
- 
 
 /**
  * Read string from stream.
@@ -107,7 +105,7 @@ client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
 	}
 
 	/* check if there is such a registered domain */
-	if (dm->stat == 1) {
+	if (dm->status == 1) {
 		if ((wd->nameservers = malloc(dm->ns._length)) == NULL) {
 			ev->_major = CORBA_SYSTEM_EXCEPTION;
 			CORBA_free (dm);
@@ -125,16 +123,18 @@ client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
 }
 
 /*
- * main 
+ * main
  */
 int
 whois_corba_call(const char *domain, whois_data_t *wd)
 {
-	CORBA_char filename[] = "/tmp/ccWhois.ref";
         CORBA_Environment ev[1];
         CORBA_exception_init(ev);
+	CORBA_char filename[] = "/tmp/ccWhois.ref";
+	CORBA_ORB  global_orb = CORBA_OBJECT_NIL; /* global orb */
 	ccReg_Whois e_service = CORBA_OBJECT_NIL;
 	int	rc;
+ 
 
         global_orb = CORBA_ORB_init(0, NULL, "orbit-local-orb", ev);
 	if (raised_exception(ev)) {

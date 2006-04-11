@@ -173,31 +173,46 @@ static apr_status_t process_whois_request(request_rec *r)
 					"Request for \"%s\" processed in %ld ms",
 					r->uri, (time2 - time1) / 1000);
 			/* generate domain info */
-			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s", r->uri);
+			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", r->uri);
 			if (wd == NULL) {
-				apr_brigade_puts(bb, NULL, NULL, "Status:      FREE");
+				apr_brigade_puts(bb, NULL, NULL, "Status:      FREE\n");
 			}
 			else {
 				/* we use i and str for printint a list of nameservers */
 				int i;
+				char date[40]; /* should be enough for rfc822 date */
 				char *str;
-
-				apr_brigade_puts(bb, NULL, NULL, "Status:      REGISTERED");
-				apr_brigade_printf(bb, NULL, NULL, "Registered:  %ld",
-						wd->created);
-				apr_brigade_printf(bb, NULL, NULL, "Expiration:  %ld",
-						wd->expired);
-				apr_brigade_puts(bb, NULL, NULL, "Registrant:");
+				/* domain status */
+				apr_brigade_puts(bb, NULL, NULL, "Status:      REGISTERED\n");
+				/* creation date */
+				status = apr_rfc822_date(date, wd->created);
+				if (status != APR_SUCCESS) {
+					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
+							"Error when converting creation date");
+					date[0] = 0;
+				}
+				apr_brigade_printf(bb, NULL, NULL, "Registered:  %s\n", date);
+				/* expiration date */
+				status = apr_rfc822_date(date, wd->expired);
+				if (status != APR_SUCCESS) {
+					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
+							"Error when converting expiration date");
+					date[0] = 0;
+				}
+				apr_brigade_printf(bb, NULL, NULL, "Expiration:  %s\n\n", date);
+				/* Registrant info */
+				apr_brigade_puts(bb, NULL, NULL, "Registrant:\n");
 				apr_brigade_printf(bb, NULL, NULL,
 						"   Please visit %s for webbased whois.\n\n",
 						sc->webwhois_url);
-				apr_brigade_puts(bb, NULL, NULL, "Registrar:");
+				/* Registrar info */
+				apr_brigade_puts(bb, NULL, NULL, "Registrar:\n");
 				apr_brigade_printf(bb, NULL, NULL, "   Name:    %s\n",
 						wd->registrarName);
 				apr_brigade_printf(bb, NULL, NULL, "   Website: %s\n\n",
 						wd->registrarUrl);
-				apr_brigade_puts(bb, NULL, NULL, "Nameservers:");
-
+				/* Name servers */
+				apr_brigade_puts(bb, NULL, NULL, "Nameservers:\n");
 				for (i = 0, str = wd->nameservers;
 						i < wd->ns_length;
 						i += strlen(str + i))
@@ -382,13 +397,13 @@ static int process_whois_connection(conn_rec *c)
 	/* check if request isn't too long */
 	if (len > MAX_WHOIS_REQUEST_LENGTH) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"Request length too long (%d bytes)", len);
+				"Request length too long (%d bytes)", (int) len);
 		return HTTP_BAD_REQUEST;
 	}
 	/* request might be also too short (2 = <CR><LF>) */
 	if (len < MIN_WHOIS_REQUEST_LENGTH + 2) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"Request length too short (%d bytes)", len);
+				"Request length too short (%d bytes)", (int) len);
 		return HTTP_BAD_REQUEST;
 	}
 	/*
@@ -464,7 +479,6 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		apr_pool_t *ptemp, server_rec *s)
 {
-	char	*res;
 	whoisd_server_conf *sc;
 	int	err_seen = 0;
 

@@ -1,4 +1,4 @@
-APXS	= apxs
+APXS	= apxs2
 APR-CONFIG	= apr-config
 ORBIT2-CONFIG	= orbit2-config
 ORBIT-IDL-2	= orbit-idl-2
@@ -6,7 +6,7 @@ IDLOUT	= ccReg.h ccReg-common.c ccReg-stubs.c
 OBJS	= mod_whoisd.o whois-client.o ccReg-common.o ccReg-stubs.o
 IDL	= ../cr/idl/ccReg.idl
 
-ORB_LDFLAGS	= $(shell $(ORBIT2-CONFIG) --libs | sed -e s/-Wl,//g -e s/-pthread//g)
+ORB_LDFLAGS	= $(shell $(ORBIT2-CONFIG) --libs | sed -e s/-Wl,//g -e s/-pthread/-lpthread/g)
 ORB_CFLAGS	= $(shell $(ORBIT2-CONFIG) --cflags)
 
 AP_CFLAGS	 =$(shell $(APXS) -q CFLAGS)
@@ -22,7 +22,7 @@ AP_LIBS	+=$(shell $(APR-CONFIG) --libs)
 
 AP_INSTALLDIR	= $(shell $(APXS) -q LIBEXECDIR)
 
-CFLAGS	= -g -O -fPIC
+CFLAGS	= -g -O -fPIC -Wall
 LDFLAGS	= -rpath $(AP_INSTALLDIR) -Bshareable
 
 build: mod_whoisd.so
