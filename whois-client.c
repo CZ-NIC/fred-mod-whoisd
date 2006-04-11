@@ -3,9 +3,10 @@
  */
 
 #include <assert.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <string.h>
 #include <orbit/orbit.h>
 
 /* This header file was generated from the idl */
