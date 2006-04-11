@@ -98,11 +98,11 @@ static void
 client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
 		whois_data_t *wd)
 {
-        ccReg_DomainWhois *dm = NULL;
+        ccReg_DomainWhois *dm;
 
         dm =  ccReg_Whois_Domain(service , domain , ev);
 	if (raised_exception(ev)) {
-		if (dm != NULL) CORBA_free(dm);
+		/* do NOT try to free dm even if not NULL -> segfault */
 		return;
 	}
 

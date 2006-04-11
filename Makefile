@@ -1,40 +1,58 @@
-APXS   = /usr/sbin/apxs
-ORBIT2-CONFIG = orbit2-config
-ORBIT-IDL-2   = orbit-idl-2
-IDLOUT = ccReg.h ccReg-common.c ccReg-stubs.c
-OBJS   = mod_whoisd.lo whois-client.lo whois-common.lo ccReg-stubs.lo
-#IDL    = ../cr/idl/ccReg.idl
-IDL    = ccReg.idl
-CFLAGS = -g -O
-ORB_LDFLAGS = $(shell $(ORBIT2-CONFIG) --libs)
-ORB_CFLAGS  = $(shell $(ORBIT2-CONFIG) --cflags)
-AP_CFLAGS  = -I$(shell $(APXS) -q INCLUDEDIR)
-AP_LDFLAGS  = $(shell $(APXS) -q LDFLAGS_SHLIB)
-AP_INSTALLDIR = $(shell $(APXS) -q LIBEXECDIR)
+APXS	= apxs
+APR-CONFIG	= apr-config
+ORBIT2-CONFIG	= orbit2-config
+ORBIT-IDL-2	= orbit-idl-2
+IDLOUT	= ccReg.h ccReg-common.c ccReg-stubs.c
+OBJS	= mod_whoisd.o whois-client.o ccReg-common.o ccReg-stubs.o
+IDL	= ../cr/idl/ccReg.idl
 
-build: mod_whoisd.la
+ORB_LDFLAGS	= $(shell $(ORBIT2-CONFIG) --libs | sed -e s/-Wl,//g -e s/-pthread//g)
+ORB_CFLAGS	= $(shell $(ORBIT2-CONFIG) --cflags)
 
-mod_whoisd.la: $(OBJS)
-	libtool --mode=link gcc -o mod_whoisd.la -rpath $(AP_INSTALLDIR) $(OBJS) $(ORB_LDFLAGS) $(AP_LDFLAGS)
+AP_CFLAGS	 =$(shell $(APXS) -q CFLAGS)
+AP_CFLAGS	+=$(shell $(APXS) -q CFLAGS_SHLIB)
+AP_CFLAGS	+=$(shell $(APR-CONFIG) --cppflags)
+AP_CFLAGS	+=$(shell $(APR-CONFIG) --cflags)
+AP_INCLUDE	 =-I$(shell $(APXS) -q INCLUDEDIR)
+AP_INCLUDE	+=$(shell $(APR-CONFIG) --includes)
 
-mod_whoisd.lo:	mod_whoisd.c whois-client.h
-	libtool --mode=compile gcc $(CFLAGS) $(AP_CFLAGS) -c mod_whoisd.c
+AP_LDFLAGS	 =$(shell $(APXS) -q LDFLAGS_SHLIB)
+AP_LDFLAGS	+=$(shell $(APR-CONFIG) --ldflags)
+AP_LIBS	+=$(shell $(APR-CONFIG) --libs)
 
-whois-client.lo: whois-client.c whois-client.h ccReg.h
-	libtool --mode=compile gcc $(CFLAGS) $(ORB_CFLAGS) -c whois-client.c
+AP_INSTALLDIR	= $(shell $(APXS) -q LIBEXECDIR)
 
-ccReg-common.lo: ccReg-common.c 
-	libtool --mode=compile gcc $(CFLAGS) $(ORB_CFLAGS) -c ccReg-common.c
+CFLAGS	= -g -O -fPIC
+LDFLAGS	= -rpath $(AP_INSTALLDIR) -Bshareable
 
-ccReg-stubs.lo: ccReg-stubs.c
-	libtool --mode=compile gcc $(CFLAGS) $(ORB_CFLAGS) -c ccReg-stubs.c
+build: mod_whoisd.so
+
+install: mod_whoisd.so
+	cp -f mod_whoisd.so $(AP_INSTALLDIR)
+
+mod_whoisd.so: $(OBJS)
+	ld -o mod_whoisd.so $(LDFLAGS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(OBJS) $(AP_LIBS)
+
+mod_whoisd.o:	mod_whoisd.c whois-client.h
+	gcc $(CFLAGS) $(AP_CFLAGS) $(AP_INCLUDE) -c mod_whoisd.c
+
+whois-client.o: whois-client.c whois-client.h ccReg.h
+	gcc $(CFLAGS) $(ORB_CFLAGS) -c whois-client.c
+
+ccReg-common.o: ccReg-common.c
+	gcc $(CFLAGS) $(ORB_CFLAGS) -c ccReg-common.c
+
+ccReg-stubs.o: ccReg-stubs.c
+	gcc $(CFLAGS) $(ORB_CFLAGS) -c ccReg-stubs.c
 
 $(IDLOUT):
 	$(ORBIT-IDL-2) --noskels $(IDL)
 
 clean:
-	-rm -f mod_whoisd.la
-	-rm -f -r .libs
 	-rm -f $(OBJS)
-	-rm -f *.loT
+	-rm -f $(IDLOUT)
+
+distclean:
+	-rm -f mod_whoisd.so
+	-rm -f $(OBJS)
 	-rm -f $(IDLOUT)
