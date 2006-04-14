@@ -87,18 +87,16 @@ import_object_from_file (CORBA_ORB orb, CORBA_char *filename,
 /**
  * Get domain info. If there is no such a registered domain, NULL is
  * returned.
- * @par domain Domain to find
  * @par service Corba service
  * @par ev Corba environment
  * @par wd Whois data (domain info)
  */
 static void
-client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
-		whois_data_t *wd)
+client_run(ccReg_Whois service, CORBA_Environment *ev, whois_data_t *wd)
 {
         ccReg_DomainWhois *dm;
 
-        dm =  ccReg_Whois_Domain(service , domain , ev);
+        dm =  ccReg_Whois_Domain(service , wd->dname , ev);
 	if (raised_exception(ev)) {
 		/* do NOT try to free dm even if not NULL -> segfault */
 		return;
@@ -106,7 +104,11 @@ client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
 
 	/* check if there is such a registered domain */
 	if (dm->status == 1) {
-		if ((wd->nameservers = malloc(dm->ns._length)) == NULL) {
+		int i;
+
+		wd->valid = 1;
+		if ((wd->nameservers = malloc((sizeof wd->nameservers[0]) *
+						dm->ns._length)) == NULL) {
 			ev->_major = CORBA_SYSTEM_EXCEPTION;
 			CORBA_free (dm);
 			return;
@@ -115,18 +117,18 @@ client_run(const char *domain, ccReg_Whois service, CORBA_Environment *ev,
 		wd->expired = dm->expired;
 		wd->registrarName = strdup(dm->registrarName);
 		wd->registrarUrl = strdup(dm->registrarUrl);
-		memcpy(wd->nameservers, dm->ns._buffer, dm->ns._length);
+		for (i = 0; i < dm->ns._length; i++)
+			wd->nameservers[i] = strdup(dm->ns._buffer[i]);
 		wd->ns_length = dm->ns._length;
 	}
+	else wd->valid = 0;
 
         CORBA_free (dm);
 }
 
-/*
- * main
- */
-int
-whois_corba_call(const char *domain, whois_data_t *wd)
+/* this one is called from wrapper bellow */
+static int
+whois_corba_call_int(whois_data_t *wd)
 {
         CORBA_Environment ev[1];
         CORBA_exception_init(ev);
@@ -154,7 +156,7 @@ whois_corba_call(const char *domain, whois_data_t *wd)
 		return CORBA_IMPORT_FAILED;
 	}
 
-	client_run(domain, e_service, ev, wd);
+	client_run(e_service, ev, wd);
 
 	/* was everything OK? */
 	if (raised_exception(ev)) rc = CORBA_SERVICE_FAILED;
@@ -168,11 +170,29 @@ whois_corba_call(const char *domain, whois_data_t *wd)
         return rc;
 }
 
+/**
+ * wrapper around whois_corba_call_int
+ * The problem is probably in linking apache and corba together.
+ * Parameters on stack are not handled properly, this wrapper solves
+ * the problem for now, although it's dirty hack.
+ */
+int
+whois_corba_call(whois_data_t *wd)
+{
+	return whois_corba_call_int(wd);
+}
+
 void
 whois_release_data(whois_data_t *wd)
 {
+	int i;
+
 	assert (wd != NULL);
+	/* free everything except wd->dname which is handled in apache */
 	free(wd->registrarName);
 	free(wd->registrarUrl);
+	for (i = 0; i < wd->ns_length; i++) {
+		free(wd->nameservers[i]);
+	}
 	free(wd->nameservers);
 }

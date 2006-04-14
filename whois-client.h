@@ -16,22 +16,24 @@
  * by caller.
  */
 typedef struct {
+	int  valid;
+	char *dname; /* domain name - this is the only item which is not handled by callee */
 	long long created;
 	long long expired;
 	char *registrarName;
 	char *registrarUrl;
-	char *nameservers;
 	int  ns_length;
+	char **nameservers;
 } whois_data_t;
 
 /**
  * This is the core of whois module. This function performs actual query
- * for domain.
- *
- * @par domain	Domain name
+ * for domain. Note that domain name is hidden inside wd struct - see
+ * mod_whoisd.c for reason why.
+ * @par wd	Domain info struct
  * @ret Status (see defines above)
  */
-int whois_corba_call(const char *domain, whois_data_t *wd);
+int whois_corba_call(whois_data_t *wd);
 
 /**
  * Release content of whois_data_t structure. We don't want to mix apache

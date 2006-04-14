@@ -77,7 +77,7 @@ static apr_status_t process_whois_request(request_rec *r)
 {
 	int	rc;
 	char	pending_comment; /* pending new line (boolean) */
-	whois_data_t	*wd; /* whois data */
+	whois_data_t	wd; /* whois data */
 	apr_time_t	time1, time2; /* meassuring of server latency */
 	apr_status_t	status;
 	apr_time_exp_t	now;
@@ -155,15 +155,15 @@ static apr_status_t process_whois_request(request_rec *r)
 		}
 	}
 
-	/*
-	 * this structure will be filled with valid data upon return from
-	 * whois_corba_call
-	 */
-	wd = apr_pcalloc(r->pool, sizeof *wd);
-
 	/* We will meassure the time the corba function call took. */
 	time1 = apr_time_now();
-	rc = whois_corba_call(r->uri, wd);
+	/** XXX
+	 * !!! r->uri must be handed over inside wd struct
+	 * !!! for unknown reason when called as whois_corba_call(&wd, r->uri)
+	 * !!! r->uri pointer is garbled. Please help me investigate why .. :(
+	 */
+	wd.dname = r->uri;
+	rc = whois_corba_call(&wd);
 	time2 = apr_time_now();
 
 	/* check what actualy happened */
@@ -171,10 +171,10 @@ static apr_status_t process_whois_request(request_rec *r)
 		case CORBA_OK:
 			ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
 					"Request for \"%s\" processed in %ld ms",
-					r->uri, (time2 - time1) / 1000);
+					wd.dname, (time2 - time1) / 1000);
 			/* generate domain info */
-			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", r->uri);
-			if (wd == NULL) {
+			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", wd.dname);
+			if (!wd.valid) {
 				apr_brigade_puts(bb, NULL, NULL, "Status:      FREE\n");
 			}
 			else {
@@ -185,7 +185,7 @@ static apr_status_t process_whois_request(request_rec *r)
 				/* domain status */
 				apr_brigade_puts(bb, NULL, NULL, "Status:      REGISTERED\n");
 				/* creation date */
-				status = apr_rfc822_date(date, wd->created);
+				status = apr_rfc822_date(date, wd.created);
 				if (status != APR_SUCCESS) {
 					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
 							"Error when converting creation date");
@@ -193,7 +193,7 @@ static apr_status_t process_whois_request(request_rec *r)
 				}
 				apr_brigade_printf(bb, NULL, NULL, "Registered:  %s\n", date);
 				/* expiration date */
-				status = apr_rfc822_date(date, wd->expired);
+				status = apr_rfc822_date(date, wd.expired);
 				if (status != APR_SUCCESS) {
 					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
 							"Error when converting expiration date");
@@ -208,19 +208,17 @@ static apr_status_t process_whois_request(request_rec *r)
 				/* Registrar info */
 				apr_brigade_puts(bb, NULL, NULL, "Registrar:\n");
 				apr_brigade_printf(bb, NULL, NULL, "   Name:    %s\n",
-						wd->registrarName);
+						wd.registrarName);
 				apr_brigade_printf(bb, NULL, NULL, "   Website: %s\n\n",
-						wd->registrarUrl);
+						wd.registrarUrl);
 				/* Name servers */
 				apr_brigade_puts(bb, NULL, NULL, "Nameservers:\n");
-				for (i = 0, str = wd->nameservers;
-						i < wd->ns_length;
-						i += strlen(str + i))
-				{
-					apr_brigade_printf(bb, NULL, NULL, "   %s\n", str + i);
-				}
 
-				whois_release_data(wd);
+				for (i = 0; i < wd.ns_length; i++)
+					apr_brigade_printf(bb, NULL, NULL, "   %s\n",
+							wd.nameservers[i]);
+
+				whois_release_data(&wd);
 			}
 			break;
 
@@ -567,7 +565,7 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
 		const char *a1)
 {
 	const char *err;
-	char	buf[1001];
+	char	buf[101];
 	char	*res;
 	apr_file_t	*f;
 	apr_size_t	nbytes;
@@ -602,16 +600,12 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
 	}
 
 	/* read the file */
-	res = NULL;
-	nbytes = 1000;
+	res = apr_pstrdup(cmd->temp_pool, " ");
+	nbytes = 100;
 	while ((status = apr_file_read(f, (void *) buf, &nbytes)) == APR_SUCCESS) {
 		buf[nbytes] = 0;
-		/*
-		 * order of arguments IS important, last arg must be null
-		 * (res might be NULL)
-		 */
-		res = apr_pstrcat(cmd->temp_pool, buf, res, NULL);
-		nbytes = 1000;
+		res = apr_pstrcat(cmd->temp_pool, res, buf, NULL);
+		nbytes = 100;
 	}
 	if (status != APR_EOF) {
 		return apr_psprintf(cmd->temp_pool,
