@@ -52,9 +52,7 @@ clean:
 	-rm -f $(OBJS)
 	-rm -f $(IDLOUT)
 
-distclean:
+distclean: clean
 	-rm -f mod_whoisd.so
-	-rm -f $(OBJS)
-	-rm -f $(IDLOUT)
 
 .PHONY: clean distclean install build
