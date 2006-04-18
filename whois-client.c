@@ -78,7 +78,7 @@ import_object_from_file (CORBA_ORB orb, CORBA_char *filename,
 	}
 
 	obj = (CORBA_Object) CORBA_ORB_string_to_object(orb, objref, ev);
-	free (objref);
+	g_free (objref);
 
         fclose (file);
         return obj;
