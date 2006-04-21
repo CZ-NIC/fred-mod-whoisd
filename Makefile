@@ -1,4 +1,4 @@
-APXS	= apxs2
+APXS	= apxs
 APR-CONFIG	= apr-config
 ORBIT2-CONFIG	= orbit2-config
 ORBIT-IDL-2	= orbit-idl-2
