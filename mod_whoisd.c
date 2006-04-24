@@ -646,7 +646,7 @@ static const char *set_whois_delay(cmd_parms *cmd, void *dummy, const char *a1)
 
 	/* do some basic checking */
 	for (p = (char *) a1; *p; p++)
-		if (!apr_isdigit(*(p++))) return "WhoisDelay value is not a number";
+		if (!apr_isdigit(*p)) return "WhoisDelay value is not a number";
 	if (p - a1 > 4)
 		return "WhoisDelay value is out of range, must be 0 .. 9999";
 
