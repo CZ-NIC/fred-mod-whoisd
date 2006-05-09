@@ -1,10 +1,15 @@
+# Promene ktere je treba nakonfigurovat
 APXS	= apxs
 APR-CONFIG	= apr-config
 ORBIT2-CONFIG	= orbit2-config
 ORBIT-IDL-2	= orbit-idl-2
+IDL	= ../cr/idl/ccReg.idl
+
+#
+# Nasledujici cast by mela fungovat bez zasahu
+#
 IDLOUT	= ccReg.h ccReg-common.c ccReg-stubs.c
 OBJS	= mod_whoisd.o whois-client.o ccReg-common.o ccReg-stubs.o
-IDL	= ../cr/idl/ccReg.idl
 
 ORB_LDFLAGS	= $(shell $(ORBIT2-CONFIG) --libs | sed -e s/-Wl,//g -e s/-pthread/-lpthread/g)
 ORB_CFLAGS	= $(shell $(ORBIT2-CONFIG) --cflags)
