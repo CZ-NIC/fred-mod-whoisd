@@ -116,7 +116,7 @@ static apr_status_t process_whois_request(request_rec *r)
 	for (b = APR_BRIGADE_FIRST(bb);
 		 b != APR_BRIGADE_SENTINEL(bb);
 		 b = APR_BUCKET_NEXT(b)) {
-		char *str, *pos;
+		const char *str, *pos;
 		apr_size_t	len;
 		apr_bucket *bnew;
 
@@ -170,7 +170,7 @@ static apr_status_t process_whois_request(request_rec *r)
 	switch (rc) {
 		case CORBA_OK:
 			ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
-					"Request for \"%s\" processed in %ld ms",
+					"Request for \"%s\" processed in %lld ms",
 					wd.dname, (time2 - time1) / 1000);
 			/* generate domain info */
 			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", wd.dname);
@@ -181,7 +181,7 @@ static apr_status_t process_whois_request(request_rec *r)
 				/* we use i and str for printint a list of nameservers */
 				int i;
 				char date[40]; /* should be enough for rfc822 date */
-				char *str;
+//				char *str;
 				/* domain status */
 				apr_brigade_puts(bb, NULL, NULL, "Status:      REGISTERED\n");
 				/* creation date */
@@ -436,7 +436,7 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 	apr_size_t	len;
 	apr_status_t	status;
 	char *pos;
-	char *str;
+	const char *str;
 
 	for (b = APR_BRIGADE_FIRST(bb);
 		 b != APR_BRIGADE_SENTINEL(bb);
