@@ -185,7 +185,7 @@ static apr_status_t process_whois_request(request_rec *r)
 				/* domain status */
 				apr_brigade_puts(bb, NULL, NULL, "Status:      REGISTERED\n");
 				/* creation date */
-				status = apr_rfc822_date(date, wd.created);
+				status = apr_rfc822_date(date, apr_time_from_sec(wd.created));
 				if (status != APR_SUCCESS) {
 					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
 							"Error when converting creation date");
@@ -193,7 +193,7 @@ static apr_status_t process_whois_request(request_rec *r)
 				}
 				apr_brigade_printf(bb, NULL, NULL, "Registered:  %s\n", date);
 				/* expiration date */
-				status = apr_rfc822_date(date, wd.expired);
+				status = apr_rfc822_date(date, apr_time_from_sec(wd.expired));
 				if (status != APR_SUCCESS) {
 					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
 							"Error when converting expiration date");
