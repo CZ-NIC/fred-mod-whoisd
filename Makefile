@@ -30,6 +30,8 @@ AP_INSTALLDIR	= $(shell $(APXS) -q LIBEXECDIR)
 CFLAGS	= -g -O -fPIC -Wall
 LDFLAGS	= -rpath $(AP_INSTALLDIR) -Bshareable
 
+all: build
+
 build: mod_whoisd.so
 
 install: mod_whoisd.so
