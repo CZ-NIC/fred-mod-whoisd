@@ -1,9 +1,12 @@
+
+
 # Promene ktere je treba nakonfigurovat
 APXS	= apxs
 APR-CONFIG	= apr-config
 ORBIT2-CONFIG	= orbit2-config
 ORBIT-IDL-2	= orbit-idl-2
 IDL	= ../cr/idl/ccReg.idl
+
 
 #
 # Nasledujici cast by mela fungovat bez zasahu
@@ -28,7 +31,7 @@ AP_LIBS	+=$(shell $(APR-CONFIG) --libs)
 AP_INSTALLDIR	= $(shell $(APXS) -q LIBEXECDIR)
 
 CFLAGS	= -g -O -fPIC -Wall
-LDFLAGS	= -rpath $(AP_INSTALLDIR) -Bshareable
+LDFLAGS	= -Bshareable
 
 all: build
 
@@ -38,7 +41,7 @@ install: mod_whoisd.so
 	cp -f mod_whoisd.so $(AP_INSTALLDIR)
 
 mod_whoisd.so: $(OBJS)
-	ld -o mod_whoisd.so $(LDFLAGS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(OBJS) $(AP_LIBS)
+	gcc -shared -o mod_whoisd.so $(LDFLAGS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(OBJS) $(AP_LIBS)
 
 mod_whoisd.o:	mod_whoisd.c whois-client.h
 	gcc $(CFLAGS) $(AP_CFLAGS) $(AP_INCLUDE) -c mod_whoisd.c
