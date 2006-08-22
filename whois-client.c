@@ -132,9 +132,10 @@ whois_corba_call_int(whois_data_t *wd)
 {
         CORBA_Environment ev[1];
         CORBA_exception_init(ev);
-	CORBA_char filename[] = "/tmp/ccWhois.ref";
+	CORBA_char filename[] = "/tmp/ccReg.ref";
 	CORBA_ORB  global_orb = CORBA_OBJECT_NIL; /* global orb */
-	ccReg_Whois e_service = CORBA_OBJECT_NIL;
+        ccReg_EPP epp_service = CORBA_OBJECT_NIL;
+        ccReg_Whois whois_service  = CORBA_OBJECT_NIL;
 	int	rc;
  
 
@@ -145,25 +146,36 @@ whois_corba_call_int(whois_data_t *wd)
 		return CORBA_INIT_FAILED;
 	}
 
-	e_service = (ccReg_Whois)
+
+
+
+
+
+	epp_service = (ccReg_EPP)
 		import_object_from_file(global_orb, filename, ev);
 	if (raised_exception(ev)) {
 		/* releasing managed object */
-		CORBA_Object_release(e_service, ev);
+		CORBA_Object_release(epp_service, ev);
 		/* tear down the ORB */
 		if (global_orb != CORBA_OBJECT_NIL)
 			CORBA_ORB_destroy(global_orb, ev);
 		return CORBA_IMPORT_FAILED;
 	}
 
-	client_run(e_service, ev, wd);
+        whois_service = (ccReg_Whois)  ccReg_EPP_getWhois( epp_service , ev);
+
+        etk_abort_if_exception(ev, "getWhois service failed");
+
+
+	client_run(whois_service, ev, wd);
 
 	/* was everything OK? */
 	if (raised_exception(ev)) rc = CORBA_SERVICE_FAILED;
 	else rc = CORBA_OK;
  
 	/* releasing managed object */
-	CORBA_Object_release(e_service, ev);
+        CORBA_Object_release(whois_service, ev);
+	CORBA_Object_release(epp_service, ev);
 	/* tear down the ORB */
 	if (global_orb != CORBA_OBJECT_NIL) CORBA_ORB_destroy(global_orb, ev);
  
