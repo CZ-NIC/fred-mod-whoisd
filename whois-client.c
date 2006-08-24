@@ -16,6 +16,7 @@
 #define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
 
 
+
 /**
  * Read string from stream.
  */
@@ -164,7 +165,15 @@ whois_corba_call_int(whois_data_t *wd)
 
         whois_service = (ccReg_Whois)  ccReg_EPP_getWhois( epp_service , ev);
 
-        etk_abort_if_exception(ev, "getWhois service failed");
+        if (raised_exception(ev)) {
+                /* releasing managed object */
+                CORBA_Object_release(whois_service, ev);
+                /* tear down the ORB */
+                if (global_orb != CORBA_OBJECT_NIL)
+                        CORBA_ORB_destroy(global_orb, ev);
+                return CORBA_IMPORT_FAILED;
+        }
+
 
 
 	client_run(whois_service, ev, wd);
