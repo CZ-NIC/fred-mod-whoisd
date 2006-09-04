@@ -15,7 +15,6 @@
 #include <ORBitservices/CosNaming.h>
 
 /* This header file was generated from the idl */
-#include "ccReg.h"
 #include "whois-client.h"
 
 /** A shortcut for testing of CORBA exception appearence. */

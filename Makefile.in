@@ -12,6 +12,7 @@ ORBIT-IDL   = @ORBIT_IDL@
 PKG-CONFIG  = @PKG_CONFIG@
 DOXYGEN     = @DOXYGEN@
 IDL         = @IDL@
+IDLPREFIX   = @IDLPREFIX@
 INSTALL     = @INSTALL@
 SHELL       = @SHELL@
 PKG_STRING  = @PACKAGE_STRING@
@@ -19,11 +20,10 @@ PKG_NAME    = @PACKAGE_NAME@
 PKG_TARNAME = @PACKAGE_TARNAME@
 PKG_VERSION = @PACKAGE_VERSION@
 
-
 DISTFILES   = configure.ac disc.txt Makefile.in mod_whoisd.c whois-client.c whois-client.h
 EXECFILES   = mod_whoisd.so
-IDLOUT      = ccReg.h ccReg-common.c ccReg-stubs.c
-OBJS        = whois-client.o ccReg-common.o ccReg-stubs.o
+IDLOUT      = ${IDLPREFIX}.h ${IDLPREFIX}-common.c ${IDLPREFIX}-stubs.c
+OBJS        = whois-client.o ${IDLPREFIX}-common.o ${IDLPREFIX}-stubs.o
 ALL_OBJS    = mod_whoisd.o $(OBJS)
 TARDIR      = $(PKG_TARNAME)-$(PKG_VERSION)
 
@@ -66,14 +66,14 @@ mod_whoisd.so: $(ALL_OBJS)
 mod_whoisd.o: mod_whoisd.c whois-client.h
 	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(AP_CPPFLAGS) $(AP_CFLAGS) $(AP_INCLUDE) $(DEFS) -c mod_whoisd.c
 
-whois-client.o: whois-client.c whois-client.h ccReg.h
-	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c whois-client.c
+whois-client.o: whois-client.c whois-client.h ${IDLPREFIX}.h
+	$(CC) -fPIC -include ${IDLPREFIX}.h $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c whois-client.c
 
-ccReg-common.o: ccReg-common.c ccReg.h
-	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c ccReg-common.c
+${IDLPREFIX}-common.o: ${IDLPREFIX}-common.c ${IDLPREFIX}.h
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c ${IDLPREFIX}-common.c
 
-ccReg-stubs.o: ccReg-stubs.c ccReg.h
-	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c ccReg-stubs.c
+${IDLPREFIX}-stubs.o: ${IDLPREFIX}-stubs.c ${IDLPREFIX}.h
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c ${IDLPREFIX}-stubs.c
 
 $(IDLOUT): $(IDL)
 	$(ORBIT-IDL) --noskels $(IDL)
