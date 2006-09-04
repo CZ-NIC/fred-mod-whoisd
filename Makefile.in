@@ -1,0 +1,120 @@
+CC          = @CC@
+CFLAGS	    = @CFLAGS@
+CPPFLAGS    = @CPPFLAGS@
+DEFS        = @DEFS@
+LDFLAGS	    = @LDFLAGS@
+LIBS        = @LIBS@
+
+APR-CONFIG  = @APR_CONFIG@
+APU-CONFIG  = @APU_CONFIG@
+APXS        = @APXS@
+ORBIT-IDL   = @ORBIT_IDL@
+PKG-CONFIG  = @PKG_CONFIG@
+DOXYGEN     = @DOXYGEN@
+IDL         = @IDL@
+INSTALL     = @INSTALL@
+SHELL       = @SHELL@
+PKG_STRING  = @PACKAGE_STRING@
+PKG_NAME    = @PACKAGE_NAME@
+PKG_TARNAME = @PACKAGE_TARNAME@
+PKG_VERSION = @PACKAGE_VERSION@
+
+
+DISTFILES   = configure.ac disc.txt Makefile.in mod_whoisd.c whois-client.c whois-client.h
+EXECFILES   = mod_whoisd.so
+IDLOUT      = ccReg.h ccReg-common.c ccReg-stubs.c
+OBJS        = whois-client.o ccReg-common.o ccReg-stubs.o
+ALL_OBJS    = mod_whoisd.o $(OBJS)
+TARDIR      = $(PKG_TARNAME)-$(PKG_VERSION)
+
+ORB_LDFLAGS:= $(shell $(PKG-CONFIG) --libs ORBit-2.0)
+ORB_CFLAGS := $(shell $(PKG-CONFIG) --cflags ORBit-2.0)
+COS_LDFLAGS:= $(shell $(PKG-CONFIG) --libs ORBit-CosNaming-2.0)
+COS_CFLAGS := $(shell $(PKG-CONFIG) --cflags ORBit-CosNaming-2.0)
+ORB_LDFLAGS:= $(ORB_LDFLAGS) $(COS_LDFLAGS)
+ORB_CFLAGS := $(ORB_CFLAGS) $(COS_CFLAGS)
+
+AP_CPPFLAGS:= $(shell $(APR-CONFIG) --cppflags)
+AP_CFLAGS  := $(shell $(APR-CONFIG) --cflags)
+APXS_INCLUDE:= $(shell $(APXS) -q INCLUDEDIR)
+APR_INCLUDE:= $(shell $(APR-CONFIG) --includes)
+APU_INCLUDE:= $(shell $(APU-CONFIG) --includes)
+AP_INCLUDE := -I$(APXS_INCLUDE) $(APU_INCLUDE) $(APR_INCLUDE)
+AP_CONFDIR := $(shell $(APXS) -q SYSCONFDIR)
+
+AP_LDFLAGS := $(shell $(APR-CONFIG) --ldflags)
+AP_LIBS	   := $(shell $(APR-CONFIG) --libs)
+
+INSTALLDIR := $(shell $(APXS) -q LIBEXECDIR)
+
+.PHONY: all build install uninstall clean distclean realclean doc dist
+.SUFFIXES:
+
+all: build
+
+build: $(EXECFILES) doc
+
+install: mod_whoisd.so
+	$(INSTALL) --mode 0755 mod_whoisd.so $(INSTALLDIR)
+
+uninstall:
+	-rm -f $(INSTALLDIR)/mod_whoisd.so
+
+mod_whoisd.so: $(ALL_OBJS)
+	$(CC) -Wl,-rpath $(AP_INSTALLDIR) -Bshareable -shared -o mod_whoisd.so $(LDFLAGS) $(LIBS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(AP_LIBS) $(ALL_OBJS)
+
+mod_whoisd.o: mod_whoisd.c whois-client.h
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(AP_CPPFLAGS) $(AP_CFLAGS) $(AP_INCLUDE) $(DEFS) -c mod_whoisd.c
+
+whois-client.o: whois-client.c whois-client.h ccReg.h
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c whois-client.c
+
+ccReg-common.o: ccReg-common.c ccReg.h
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c ccReg-common.c
+
+ccReg-stubs.o: ccReg-stubs.c ccReg.h
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c ccReg-stubs.c
+
+$(IDLOUT): $(IDL)
+	$(ORBIT-IDL) --noskels $(IDL)
+
+distclean:
+	-rm -f $(ALL_OBJS)
+	-rm -f $(IDLOUT)
+	-rm -rf acconfig.h autom4te.cache configure Makefile config.log config.status
+	-rm -f doxygen.log
+	-rm -f $(TARDIR).tar
+
+clean:
+	-rm -f $(ALL_OBJS)
+	-rm -f $(IDLOUT)
+	-rm -f doxygen.log
+	-rm -f $(EXECFILES)
+	-rm -fr doc/html
+	-rm -f $(TARDIR).tar
+
+realclean:
+	-rm -f $(ALL_OBJS)
+	-rm -f $(IDLOUT)
+	-rm -rf acconfig.h autom4te.cache configure Makefile config.log config.status
+	-rm -f doxygen.log
+	-rm -f $(EXECFILES)
+	-rm -fr doc/html
+	-rm -f $(TARDIR).tar
+
+doc: doxy.conf
+	@ if test x$(DOXYGEN) = x; then \
+		 echo "Doxygen executable not configured."; \
+		 echo "Use --with-doc parameter to configure."; \
+	   else \
+		 $(DOXYGEN) doxy.conf 2>&1 1>&doxygen.log; \
+		 echo "index.html is in doc/html directory"; \
+		 echo "output from doxygen is in doxygen.log file"; \
+	   fi
+
+dist: $(ALL_OBJS) $(DISTFILES) $(EXECFILES)
+	-@ echo "Creating distribution tar archive for package $(PKG_STRING)."
+	mkdir $(TARDIR)
+	cp -r $(EXECFILES) $(DISTFILES) $(IDL) $(IDLOUT) doc $(TARDIR)
+	tar cf $(TARDIR).tar $(TARDIR)
+	rm -rf $(TARDIR)

@@ -1,5 +1,14 @@
-/*
- * Copyright statement
+/**
+ * @file mod_whoisd.c
+ *
+ * Module implementing whois service.
+ *
+ * Whois daemon accepts requests containing object name and returns information
+ * about that object. The only object, which this server serves information
+ * about, is currently a domain.
+ *
+ * The module serves only as a proxy, translating whois requests to CORBA
+ * requests and back. CORBA functionality is implemented in whois-client.c.
  */
 
 #include "httpd.h"
@@ -28,82 +37,98 @@
 #include "scoreboard.h"
 #include "util_filter.h"
 
-
+/* CORBA backend */
 #include "whois-client.h"
 
-/*
- * Whois daemon accepts requests containing object name and returns information
- * about that object. The only object, which this server serves information
- * about, is currently a domain.
- */
-
-#define WHOISD_VERSION	"testing"
+/** This default desclaimer should never be used in production release :). */
 #define DEFAULT_DISCLAIMER	"Domain Information over Whois protocol\n"
-#define INT_ERROR_MSG	"Internal server error occured when processing your \
+/**
+ * Message displayed bellow disclaimer when query cannot be answered
+ * becauseof an error.
+ */
+#define INT_ERROR_MSG	"Internal error occured when processing your \
 request.\nPlease try again later.\n"
 
-#define MIN_WHOIS_REQUEST_LENGTH	3 	/* minimal object name length */
-#define MAX_WHOIS_REQUEST_LENGTH	300 	/* should be enough */
+#define MIN_WHOIS_REQUEST_LENGTH 3   /**< Minimal object (domain) name length. */
+#define MAX_WHOIS_REQUEST_LENGTH 300 /**< Maximal object (domain) name length. */
+/** Length of buffer used to hold time of response generation. */
+#define TIME_BUFFER_LENGTH 50
 
-module AP_MODULE_DECLARE_DATA whoisd_module;
+module AP_MODULE_DECLARE_DATA whoisd_module; /**< Whois module declaration. */
 
 /**
  * Configuration structure of whoisd module.
  */
 typedef struct {
-	int	whoisd_enabled;
-	const char *disclaimer_filename;
-	char *disclaimer;
-	const char *webwhois_url;
-	apr_interval_time_t	delay; /* microseconds */
-} whoisd_server_conf;
+	int	whoisd_enabled; /**< Enabled/disabled flag. */
+	const char *disclaimer_filename; /**< File with disclaimer. */
+	char *disclaimer; /**< Disclaimer as a string. */
+	const char *webwhois_url; /**< URL of web based whois. */
+	const char *ns_loc; /**< Location of CORBA nameservice. */
+	const char *object; /**< Name of whois object. */
+	apr_interval_time_t	delay; /**< Used for meassuring of CORBA call latency. */
+	whois_corba_globs *corba_globs; /**< Variables needed for CORBA call. */
+}whoisd_server_conf;
 
+#if AP_SERVER_MINORVERSION_NUMBER == 0
 /**
  * This is wrapper function for compatibility reason. Apache 2.0 does
  * not have ap_log_cerror, instead we will use ap_log_error.
  */
-#if AP_SERVER_MINORVERSION_NUMBER == 0
 #define ap_log_cerror(mark, level, status, c, ...) \
 	ap_log_error(mark, level, status, (c)->base_server, __VA_ARGS__)
 #endif
 
 /**
  * Whois request processor.
- * Response to client is produced step-by-step by gluing of buckets.
+ *
+ * This function is called from connection handler. It performs
+ * a CORBA call through CORBA backend and then processes data and
+ * sends typical whois answer. Response to client is produced step-by-step
+ * by gluing of buckets.
+ *
  * @param r Initialized request waiting to be processed
- * @ret Result of processing
+ * @return Result of processing
  */
 static apr_status_t process_whois_request(request_rec *r)
 {
 	int	rc;
-	char	pending_comment; /* pending new line (boolean) */
-	whois_data_t	wd; /* whois data */
-	apr_time_t	time1, time2; /* meassuring of server latency */
+	int i;
+	char	pending_comment; /* pending nl from previous bucket (boolean) */
+	char	timebuf[TIME_BUFFER_LENGTH]; /* buffer for time of resp. gen. */
+	whois_data_t	*wd; /* whois data returned from CORBA backend */
+	apr_time_t	time1, time2; /* meassuring of CORBA server latency */
 	apr_status_t	status;
-	apr_time_exp_t	now;
-	apr_bucket_brigade *bb;
-	apr_bucket	*b;
+	apr_bucket_brigade *bb; /* brigade for response */
+	apr_bucket	*b; /* used for escaping of disclaimer */
 	server_rec	*s = r->server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
 
+	/* We will meassure the time the corba function call takes. */
+	time1 = apr_time_now();
+	/* call corba function, return code will be analyzed later */
+	rc = whois_corba_call(sc->corba_globs, r->uri, &wd, timebuf,
+			TIME_BUFFER_LENGTH);
+	time2 = apr_time_now();
+
+	ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
+			"Request for \"%s\" processed in %lld ms",
+			r->uri, (time2 - time1) / 1000);
+
+	/* this brigade is used for response */
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
-	/* TODO try what is flush arg */
-	apr_brigade_printf(bb, NULL, NULL, "Whoisd Server Version: %s\n",
-			WHOISD_VERSION);
-	apr_brigade_puts(bb, NULL, NULL, sc->disclaimer);
+	/* TODO try what is flush arg in bucket printing routines */
 
-	/* Get time of response generation. */
-	status = apr_time_exp_gmt(&now, apr_time_now()); /* get current time */
-	if (status != APR_SUCCESS) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, status, r->connection,
-					"Could not get current time! Using undefined value.");
-	}
-	apr_brigade_printf(bb, NULL, NULL,
-		"Timestamp: %04d-%02d-%02d %02d:%02d:%02d (YYYY-MM-DD HH:MM:SS) GMT\n",
-		1900 + now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour,
-		now.tm_min, now.tm_sec);
+	/*
+	 * Print disclaimer into bucket, note that this disclaimer is not
+	 * properly escaped yet. Escaping is done bellow in 'for' loop.
+	 */
+	apr_brigade_printf(bb, NULL, NULL, "Whoisd Server Version: %s\n\n",
+			PACKAGE_VERSION);
+	apr_brigade_puts(bb, NULL, NULL, sc->disclaimer);
+	apr_brigade_printf(bb, NULL, NULL, "Timestamp: %s\n", timebuf);
 
 	/*
 	 * Every line which doesn't contain actual data must be preceeded by
@@ -113,9 +138,9 @@ static apr_status_t process_whois_request(request_rec *r)
 	 * because our assumption about one bucket might not hold forever.
 	 */
 	pending_comment = 1;
-	for (b = APR_BRIGADE_FIRST(bb);
+	for (b  = APR_BRIGADE_FIRST(bb);
 		 b != APR_BRIGADE_SENTINEL(bb);
-		 b = APR_BUCKET_NEXT(b)) {
+		 b  = APR_BUCKET_NEXT(b)) {
 		const char *str, *pos;
 		apr_size_t	len;
 		apr_bucket *bnew;
@@ -154,92 +179,65 @@ static apr_status_t process_whois_request(request_rec *r)
 			}
 		}
 	}
+	/* this new line will not be escaped */
+	apr_brigade_puts(bb, NULL, NULL,   "\n");
 
-	/* We will meassure the time the corba function call took. */
-	time1 = apr_time_now();
-	/** XXX
-	 * !!! r->uri must be handed over inside wd struct
-	 * !!! for unknown reason when called as whois_corba_call(&wd, r->uri)
-	 * !!! r->uri pointer is garbled. Please help me investigate why .. :(
-	 */
-	wd.dname = r->uri;
-	rc = whois_corba_call(&wd);
-	time2 = apr_time_now();
-
-	/* check what actualy happened */
+	/* analyze return code from CORBA function call */
 	switch (rc) {
+		case CORBA_DOMAIN_FREE:
+			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", r->uri);
+			apr_brigade_puts(bb, NULL, NULL,   "Status:      FREE\n");
+			break;
 		case CORBA_OK:
-			ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
-					"Request for \"%s\" processed in %lld ms",
-					wd.dname, (time2 - time1) / 1000);
 			/* generate domain info */
-			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", wd.dname);
-			if (!wd.valid) {
-				apr_brigade_puts(bb, NULL, NULL, "Status:      FREE\n");
-			}
-			else {
-				/* we use i and str for printint a list of nameservers */
-				int i;
-				char date[40]; /* should be enough for rfc822 date */
-//				char *str;
-				/* domain status */
-				apr_brigade_puts(bb, NULL, NULL, "Status:      REGISTERED\n");
-				/* creation date */
-				status = apr_rfc822_date(date, apr_time_from_sec(wd.created));
-				if (status != APR_SUCCESS) {
-					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
-							"Error when converting creation date");
-					date[0] = 0;
-				}
-				apr_brigade_printf(bb, NULL, NULL, "Registered:  %s\n", date);
-				/* expiration date */
-				status = apr_rfc822_date(date, apr_time_from_sec(wd.expired));
-				if (status != APR_SUCCESS) {
-					ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
-							"Error when converting expiration date");
-					date[0] = 0;
-				}
-				apr_brigade_printf(bb, NULL, NULL, "Expiration:  %s\n\n", date);
-				/* Registrant info */
-				apr_brigade_puts(bb, NULL, NULL, "Registrant:\n");
-				apr_brigade_printf(bb, NULL, NULL,
-						"   Please visit %s for webbased whois.\n\n",
-						sc->webwhois_url);
-				/* Registrar info */
-				apr_brigade_puts(bb, NULL, NULL, "Registrar:\n");
-				apr_brigade_printf(bb, NULL, NULL, "   Name:    %s\n",
-						wd.registrarName);
-				apr_brigade_printf(bb, NULL, NULL, "   Website: %s\n\n",
-						wd.registrarUrl);
-				/* Name servers */
-				apr_brigade_puts(bb, NULL, NULL, "Nameservers:\n");
+			apr_brigade_printf(bb, NULL, NULL,"Domain:      %s\n", r->uri);
+			/* domain status */
+			if (wd->status == DOMAIN_ACTIVE)
+				apr_brigade_puts(bb,NULL,NULL,"Status:      REGISTERED\n");
+			else
+				apr_brigade_puts(bb,NULL,NULL,"Status:      EXPIRED\n");
+			/* creation date */
+			apr_brigade_printf(bb, NULL, NULL,"Registered:  %s\n", wd->created);
+			/* expiration date */
+			apr_brigade_printf(bb, NULL, NULL,"Expiration:  %s\n\n",wd->expired);
+			/* Registrant info */
+			apr_brigade_puts(bb, NULL, NULL,  "Registrant:\n");
+			apr_brigade_printf(bb, NULL, NULL,
+					"   Please visit webbased whois at %s for more "
+					"information.\n\n", sc->webwhois_url);
+			/* Registrar info */
+			apr_brigade_puts(bb, NULL, NULL, "Registrar:\n");
+			apr_brigade_printf(bb, NULL, NULL, "   Name:    %s\n",
+					wd->registrarName);
+			apr_brigade_printf(bb, NULL, NULL, "   Website: %s\n\n",
+					wd->registrarUrl);
+			/* tech contacts */
+			apr_brigade_puts(bb, NULL, NULL, "Technical Contact:\n");
+			for (i = 0; i < wd->tech_length; i++)
+				apr_brigade_printf(bb, NULL, NULL, "   %s\n", wd->techs[i]);
+			/* Name servers */
+			apr_brigade_puts(bb, NULL, NULL, "\n");
+			apr_brigade_puts(bb, NULL, NULL, "Nameservers:\n");
+			for (i = 0; i < wd->ns_length; i++)
+				apr_brigade_printf(bb, NULL, NULL, "   %s\n",
+						wd->nameservers[i]);
 
-				for (i = 0; i < wd.ns_length; i++)
-					apr_brigade_printf(bb, NULL, NULL, "   %s\n",
-							wd.nameservers[i]);
-
-				whois_release_data(&wd);
-			}
+			whois_release_data(wd);
 			break;
-
-		case CORBA_INIT_FAILED:
+		case CORBA_INTERNAL_ERROR:
 			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
-				"Corba init failed");
-			apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
-			break;
-		case CORBA_IMPORT_FAILED:
-			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
-				"Corba import failed .. perhaps OID file does not exist?");
+					"Corba internal error - Memory allocation failed");
 			apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
 			break;
 		case CORBA_SERVICE_FAILED:
 			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
-				"Corba service failed .. perhaps CORBA server is not running?");
+					"Corba service failed ... perhaps CORBA server isn't "
+					"running?");
 			apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
 			break;
 		default:
 			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
-				"Corba call failed with unknown error code");
+					"Corba call failed with unknown error code");
 			apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
 			break;
 	}
@@ -257,7 +255,6 @@ static apr_status_t process_whois_request(request_rec *r)
 	return APR_SUCCESS;
 }
 
-
 /**
  * Map whois request to http request.
  * The created request_rec cannot be used in standard routines in
@@ -265,7 +262,7 @@ static apr_status_t process_whois_request(request_rec *r)
  * becauseof a differences between http and whois request.
  *
  * @param c Actual connection
- * @ret Newly created request
+ * @return Newly created request
  */
 static request_rec *create_request(conn_rec *c)
 {
@@ -275,7 +272,7 @@ static request_rec *create_request(conn_rec *c)
     apr_pool_create(&p, c->pool);
 	apr_pool_tag(p, "Whois_request");
 
-	/* theese are necessary */
+	/* these are necessary */
     r                  = apr_pcalloc(p, sizeof(*r));
     r->pool            = p;
     r->connection      = c;
@@ -285,7 +282,7 @@ static request_rec *create_request(conn_rec *c)
     r->status          = HTTP_OK;
 
 
-	/* theese are not essential, may be pruned away */
+	/* these are not essential, may be pruned away */
 	r->request_time    = apr_time_now();
 	r->no_cache        = 1;
 	r->no_local_copy   = 1;
@@ -321,10 +318,11 @@ static request_rec *create_request(conn_rec *c)
 }
 
 /**
- * Will read whois user request (one line of text).
- * @param r Request structure
- * @param len Length of read string
- * @ret The string which was read, NULL in case of error
+ * This will read whois request (one line of text).
+ *
+ * @param r Request structure.
+ * @param len Length of request.
+ * @return The string which was read, NULL in case of error.
  */
 static char *read_request(request_rec *r, apr_size_t *len)
 {
@@ -358,15 +356,20 @@ static char *read_request(request_rec *r, apr_size_t *len)
 }
 
 /**
- * Connection handler.
+ * Connection handler of mod_whoisd module.
  *
- * @param c Incomming connection
+ * If mod_whoisd is for server enabled, the request is read (assuming
+ * it is whois request) and processed in request handler, which is called
+ * from inside of this function.
+ *
+ * @param c Incomming connection.
+ * @return Status.
  */
 static int process_whois_connection(conn_rec *c)
 {
 	apr_status_t	status;
-	apr_size_t	len;
-	request_rec	*r;
+	apr_size_t	len;/* length of whois request */
+	request_rec	*r; /* http request - used for whois request */
 	server_rec	*s = c->base_server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
@@ -382,7 +385,7 @@ static int process_whois_connection(conn_rec *c)
 	/* add connection output filters */
 	ap_add_output_filter("WHOIS_OUTPUT_FILTER", NULL, NULL, c);
 
-	/* create request */
+	/* create and initialize http request */
 	r = create_request(c);
 
 	/*
@@ -395,13 +398,13 @@ static int process_whois_connection(conn_rec *c)
 	/* check if request isn't too long */
 	if (len > MAX_WHOIS_REQUEST_LENGTH) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"Request length too long (%d bytes)", (int) len);
+				"Request length too long (%u bytes)", (unsigned) len);
 		return HTTP_BAD_REQUEST;
 	}
 	/* request might be also too short (2 = <CR><LF>) */
 	if (len < MIN_WHOIS_REQUEST_LENGTH + 2) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"Request length too short (%d bytes)", (int) len);
+				"Request length too short (%u bytes)", (unsigned) len);
 		return HTTP_BAD_REQUEST;
 	}
 	/*
@@ -427,8 +430,12 @@ static int process_whois_connection(conn_rec *c)
 }
 
 /**
- * Whois output filter.
- * In front of every <LF>, which is not preceeded by <CR>, is added <CR>.
+ * Whois output filter inserts in front of every <LF>, which is not
+ * preceeded by <CR>, <CR>.
+ *
+ * @param f Chain of filters.
+ * @bb bb Bucket brigade to be filtered.
+ * @return Status.
  */
 static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
@@ -470,9 +477,14 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 }
 
 /**
- * Do some consistency checking.
- * It is error to have whoisd enabled and disclaimer file or webwhois
- * url not set.
+ * Postconfig hook is a good occasion to check consistency of mod_whoisd
+ * configuration and to initialize CORBA component.
+ *
+ * @param p Pool to allocate from.
+ * @param plog Pool used for logging.
+ * @param ptemp Temporary pool.
+ * @param s Server struct.
+ * @return Status.
  */
 static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		apr_pool_t *ptemp, server_rec *s)
@@ -493,26 +505,26 @@ static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 				ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
 					 "mod_whoisd: whoisd is enabled and disclaimer filename "
 					 "is not set");
-				err_seen = 1;
+				return HTTP_INTERNAL_SERVER_ERROR;
 			}
 			if (sc->webwhois_url == NULL) {
 				ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
 					 "mod_whoisd: whoisd is enabled and webbased whois url "
 					 "is not set");
-				err_seen = 1;
+				return HTTP_INTERNAL_SERVER_ERROR;
 			}
-		}
-		/* theese error is not critical, just notify user through log msg */
-		else {
-			if (sc->disclaimer_filename != NULL) {
-				ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
-					 "mod_whoisd: whoisd is not enabled but disclaimer "
-					 "filename is set");
+			if (sc->ns_loc == NULL) {
+				sc->ns_loc = apr_pstrdup(p, "localhost");
 			}
-			if (sc->webwhois_url != NULL) {
-				ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
-					 "mod_whoisd: whoisd is not enabled but webbased whois url "
-					 "is set");
+			if (sc->object == NULL) {
+				sc->object = apr_pstrdup(p, "Whois");
+			}
+			/* initialize corba */
+			sc->corba_globs = whois_corba_init(sc->ns_loc, sc->object);
+			if (sc->corba_globs == NULL) {
+				ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+					 "mod_whoisd: corba initialization failed");
+				return HTTP_INTERNAL_SERVER_ERROR;
 			}
 		}
 		/* get next virtual server */
@@ -522,6 +534,14 @@ static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 	return (err_seen) ? HTTP_INTERNAL_SERVER_ERROR : OK;
 }
 
+/**
+ * Routine disables or enables the operation of mod_whois.
+ *
+ * @param cmd Command.
+ * @param dummy Not used arg.
+ * @param flag The value.
+ * @return NULL if OK, otherwise a string.
+ */
 static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
 {
 	const char *err;
@@ -536,6 +556,15 @@ static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
     return NULL;
 }
 
+/**
+ * Routine accepts URL of web whois, which is printed instead of domain owner
+ * in whois response.
+ *
+ * @param cmd Command.
+ * @param dummy Not used arg.
+ * @param a1 The value.
+ * @return NULL if OK, otherwise a string.
+ */
 static const char *set_webwhois_url(cmd_parms *cmd, void *dummy, const char *a1)
 {
 	const char *err;
@@ -561,6 +590,15 @@ static const char *set_webwhois_url(cmd_parms *cmd, void *dummy, const char *a1)
 	return NULL;
 }
 
+/**
+ * Routine accepts name of file with disclaimer, it also reads the file
+ * and stores disclaimer in server configuration struct.
+ *
+ * @param cmd Command.
+ * @param dummy Not used arg.
+ * @param a1 The value.
+ * @return NULL if OK, otherwise a string.
+ */
 static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
 		const char *a1)
 {
@@ -631,7 +669,82 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
 }
 
 /**
+ * Routine sets nameservice location.
+ *
+ * @param cmd Command.
+ * @param dummy Not used arg.
+ * @param ns_loc The value.
+ * @return NULL if OK, otherwise a string.
+ */
+static const char *set_ns_loc(cmd_parms *cmd, void *dummy, const char *ns_loc)
+{
+	const char *err;
+    server_rec *s = cmd->server;
+    whoisd_server_conf *sc = (whoisd_server_conf *)
+			ap_get_module_config(s->module_config, &whoisd_module);
+
+	err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE|NOT_IN_LIMIT);
+    if (err) return err;
+
+	/*
+	 * catch double definition of filename
+	 * that's not serious fault so we will just print log message
+	 */
+	if (sc->ns_loc != NULL) {
+		ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+			"mod_whoisd: more than one definition of nameservice location. All \
+			but the first one will be ignored");
+		return NULL;
+	}
+
+	sc->ns_loc = apr_pstrdup(cmd->pool, ns_loc);
+
+    return NULL;
+}
+
+/**
+ * Routine sets name under which is registered whois object by nameservice.
+ *
+ * @param cmd Command.
+ * @param dummy Not used arg.
+ * @param name The value.
+ * @return NULL if OK, otherwise a string.
+ */
+static const char *set_whois_object(cmd_parms *cmd, void *dummy,const char *name)
+{
+	const char *err;
+    server_rec *s = cmd->server;
+    whoisd_server_conf *sc = (whoisd_server_conf *)
+			ap_get_module_config(s->module_config, &whoisd_module);
+
+	err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE|NOT_IN_LIMIT);
+    if (err) return err;
+
+	/*
+	 * catch double definition of filename
+	 * that's not serious fault so we will just print log message
+	 */
+	if (sc->object != NULL) {
+		ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+			"mod_whoisd: more than one definition of whois object name. All \
+			but the first one will be ignored");
+		return NULL;
+	}
+
+	sc->object = apr_pstrdup(cmd->pool, name);
+
+    return NULL;
+}
+
+/**
+ * Routine sets delay before the response is sent back to client.
+ *
  * Whois delay is defence against data miners.
+ *
+ * @param cmd Command.
+ * @param dummy Not used arg.
+ * @param a1 The value.
+ * @return NULL if OK, otherwise a string.
  */
 static const char *set_whois_delay(cmd_parms *cmd, void *dummy, const char *a1)
 {
@@ -656,21 +769,34 @@ static const char *set_whois_delay(cmd_parms *cmd, void *dummy, const char *a1)
     return NULL;
 }
 
+/** Structure defining configuration options for whoisd module. */
 static const command_rec whoisd_cmds[] = {
     AP_INIT_FLAG("WhoisProtocol", set_whois_protocol, NULL, RSRC_CONF,
-		 "Whether this server is serving the whois protocol"),
+			 "Whether this server is serving the whois protocol"),
 	AP_INIT_TAKE1("WhoisDisclaimer", set_disclaimer_file, NULL, RSRC_CONF,
-		 "File name with disclaimer which is standard part"
-		 "of every whois response"),
+			 "File name with disclaimer which is standard part"
+			 "of every whois response"),
 	AP_INIT_TAKE1("WhoisWebURL", set_webwhois_url, NULL, RSRC_CONF,
-		 "This URL is printed instead of registrant's info"
-		 " with explanational note"),
+			 "This URL is printed instead of registrant's info"
+			 " with explanational note"),
 	AP_INIT_TAKE1("WhoisDelay", set_whois_delay, NULL, RSRC_CONF,
-		 "Number of miliseconds the responce to client will be deferred. "
-		 "Number must be in range 0 to 9999"),
+			 "Number of miliseconds the responce to client will be deferred. "
+			 "Number must be in range 0 to 9999"),
+	AP_INIT_TAKE1("WhoisNameservice", set_ns_loc, NULL, RSRC_CONF,
+			 "Location of CORBA nameservice (host[:port]). Default is "
+			 "localhost."),
+	AP_INIT_TAKE1("WhoisObject", set_whois_object, NULL, RSRC_CONF,
+			 "Name under which is the whois object known to nameserver. "
+			 "Default is \"Whois\"."),
     { NULL }
 };
 
+/**
+ * Create server configuration for whoisd module.
+ *
+ * @param p Pool used for allocations.
+ * @param s Server structure.
+ */
 static void *create_whoisd_config(apr_pool_t *p, server_rec *s)
 {
 	whoisd_server_conf *sc =
@@ -679,6 +805,11 @@ static void *create_whoisd_config(apr_pool_t *p, server_rec *s)
 	return sc;
 }
 
+/**
+ * Function registering hooks of whoisd module.
+ *
+ * @param p Pool used for allocations.
+ */
 static void register_hooks(apr_pool_t *p)
 {
 	ap_hook_post_config(whoisd_postconfig_hook, NULL, NULL, APR_HOOK_MIDDLE);
@@ -690,6 +821,9 @@ static void register_hooks(apr_pool_t *p)
 				                              AP_FTYPE_CONNECTION);
 }
 
+/**
+ * Definition of whoisd module.
+ */
 module AP_MODULE_DECLARE_DATA whoisd_module = {
     STANDARD20_MODULE_STUFF,
     NULL,                       /* create per-directory config structure */

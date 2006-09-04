@@ -1,46 +1,104 @@
+/**
+ * @file whois-client.h
+ *
+ * This file defines interface to CORBA backend.
+ *
+ * The program is divided into two parts. First contains apache stuff and
+ * second implements CORBA calls to CORBA server, which are declared here.
+ */
 #ifndef WHOIS_CLIENT_H
 #define WHOIS_CLIENT_H
 
-/*
- * define return codes. Theese are used in apache module to analyze
- * what happened during corba call. Appropriate apache log message is
- * then generated.
+/**
+ * @defgroup corbastatgroup Definition of corba status codes.
+ *
+ * Theese are used in apache module to analyze what happened during corba call.
+ * Appropriate apache log message is then generated if needed.
+ *
+ * @{
  */
-#define CORBA_OK	0
-#define CORBA_INIT_FAILED	1
-#define CORBA_IMPORT_FAILED	2
-#define CORBA_SERVICE_FAILED	3
+#define CORBA_OK	0 /**< No error occured. */
+#define CORBA_INIT_FAILED	1 /**< Global ORB initialization failed. */
+#define CORBA_SERVICE_FAILED	2 /**< Could not obtain object's reference. */
+#define CORBA_INTERNAL_ERROR	3 /**< Internal error == malloc failed. */
+#define CORBA_DOMAIN_FREE	4 /**< No info for domain. */
+/**
+ * @}
+ */
+
+/**
+ * Structure used to hold global ORB's and object's reference.
+ *
+ * Member variables are kept private and are understandable only by CORBA
+ * component.
+ */
+typedef struct whois_corba_globs_t whois_corba_globs;
+
+/**
+ * Status values for domain.
+ */
+typedef enum { DOMAIN_ACTIVE, DOMAIN_EXPIRED }domain_status;
 
 /**
  * Structure holding domain data. Name is not included since it is known
  * by caller.
  */
 typedef struct {
-	int  valid;
-	char *dname; /* domain name - this is the only item which is not handled by callee */
-	long long created;
-	long long expired;
-	char *registrarName;
-	char *registrarUrl;
-	int  ns_length;
-	char **nameservers;
-} whois_data_t;
+	domain_status status; /**< Domain's status. */
+	char  *created;  /**< Date a domain was created. */
+	char  *expired;  /**< Expiration date of a domain. */
+	char  *registrarName;/**< Name of company, which registered domain. */
+	char  *registrarUrl; /**< URL of company, which registered domain. */
+	int    ns_length; /**< Number of nameservers of a domain. */
+	char **nameservers; /**< FQDNs of nameservers of a domain. */
+	int    tech_length;   /**< Number of technical contacts for a domain. */
+	char **techs;   /**< Handles of techical contacts for a domain. */
+}whois_data_t;
 
 /**
- * This is the core of whois module. This function performs actual query
- * for domain. Note that domain name is hidden inside wd struct - see
- * mod_whoisd.c for reason why.
- * @par wd	Domain info struct
- * @ret Status (see defines above)
+ * Initialization of global ORB and object's reference getting.
+ *
+ * Must be called before any other function from CORBA component.
+ *
+ * @param ns_host  Host and optionally port where nameservice runs.
+ * @param obj_name Name under which is registered whois object by nameservice.
+ * @return Pointer to struct containing global ORB and object's reference.
  */
-int whois_corba_call(whois_data_t *wd);
+whois_corba_globs *whois_corba_init(const char *ns_host, const char *obj_name);
 
 /**
- * Release content of whois_data_t structure. We don't want to mix apache
- * pools with malloc and free routines within one file, so we have to
- * explicitly call this function in order to release whois data returned
- * from previous call.
- * @par wd Whois data to be freed
+ * This cleanup routine releases global ORB and object's reference initialized
+ * int whois_corba_init().
+ *
+ * @param globs CORBA data to be released.
+ */
+void whois_corba_init_cleanup(whois_corba_globs *globs);
+
+/**
+ * The core function of whois module performs actual query for domain.
+ *
+ * @param globs Data needed for CORBA call and initialized in whois_corba_init().
+ * @param dname Domain name.
+ * @param wd    Domain info struct holding output parameters from CORBA call.
+ * @param timebuf Time of response generation (buffer must be preallocated).
+ * @param timebuflen Length of buffer holding timestamp.
+ * @return Status code.
+ */
+int
+whois_corba_call(whois_corba_globs *globs,
+		const char *dname,
+		whois_data_t **wd,
+		char *timebuf,
+		unsigned timebuflen);
+
+/**
+ * Release content of whois_data_t structure.
+ *
+ * We don't want to mix apache pools with malloc and free routines within one
+ * file, so we have to explicitly call this function in order to release whois
+ * data returned from previous call. You must NOT pass NULL pointer as argument.
+ *
+ * @param wd Whois data to be freed.
  */
 void whois_release_data(whois_data_t *wd);
 

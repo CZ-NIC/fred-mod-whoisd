@@ -1,41 +1,45 @@
 
 (c) 2006 (http://www.nic.cz)
 
-The WHOIS service offered by CZ.NIC and the access to the records
-in the CZ.NIC WHOIS database are provided for information purposes
-only. It allows persons to check whether a specific domain name
-is still available or not and to obtain information related to
-the registration records of existing domain names.
+Intended use of supplied data and information
 
-CZ.NIC cannot, under any circumstances, be held liable in case the
-stored information would prove to be wrong, incomplete or not
-accurate in any sense.
+Data contained in the domain name register, as well as information
+supplied through public information services of CZ.NIC association, are
+appointed only for purposes connected with Internet network
+administration and operation, or for the purpose of legal or other
+similar proceedings, in process as regards a matter connected
+particularly with holding and using a concrete domain name.
 
-By submitting a query you agree not to use the information made
-available to:
+The domain name register is protected by the law according to
+appropriate legalities about database protection. Data, information
+should not be collected, reproduced, stored or moved beyond this scope
+in any form without preceding agreement from CZ.NIC association. The use
+of data, information or any part of them contrary to this purpose could
+be considered as a breach of the rights of CZ.NIC association, or of
+persons whose data are stored in the domain name register or as a
+violation of the rights of executors of the property rights. Gathering
+of the data or any part of them and /or providing of them for
+unrequested message distribution, abuse of network services operation
+and breaking the privacy of the other users is particularly considered
+as a violation of these rights. Using them contrary to the stated
+purpose can also lead to the user being considered as criminally
+responsible.
 
-- allow, enable or otherwise support the transmission of unsolicited,
-  commercial advertising or other solicitations whether via email or
-  otherwise;
-- target advertising in any possible way;
+Attention: Requirements for the provision of data or information are
+recorded. If a request or a series of requests is evaluated as an attack
+which may cause damage to network services or as an effort to gather
+data in conflict with the original purpose, this may lead to a blocking
+of the access to information services of CZ.NIC or further action as may
+be deemed necessary.
 
-- to cause nuisance in any possible way to the registrants by sending
-  (whether by automated, electronic processes capable of enabling
-  high volumes or other possible means) messages to them.
+The restrictions indicated above do not refer to statistical data
+provided by CZ.NIC on condition that the use of such information will
+not result in any change of the content or context thereof, and also on
+condition that a reference is provided along with any such use to the
+CZ.NIC Association or the domain name register as a source of such
+information.
 
-Without prejudice to the above, it is explicitly forbidden to extract,
-copy and/or use or re-utilise in any form and by any means
-(electronically or not) the whole or a quantitatively or qualitatively
-substantial part of the contents of the WHOIS database without prior
-and explicit permission by CZ.NIC, nor in any attempt hereof, to apply
-automated, electronic processes to CZ.NIC (or its systems).
-
-You agree that any reproduction and/or transmission of data for
-commercial purposes will always be considered as the extraction of a
-substantial part of the content of the WHOIS database.
-
-By submitting the query you agree to abide by this policy and accept
-that CZ.NIC can take measures to limit the use of its WHOIS services
-in order to protect the privacy of its registrants or the integrity
-of the database.
+By using the WHOIS service or the service of searching in the domain
+names register database, the user agrees to the stated conditions and
+purposes of data use.
 

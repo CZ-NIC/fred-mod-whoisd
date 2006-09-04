@@ -1,5 +1,8 @@
 /**
- * Copyright statement ;)
+ * @file whois-client.c
+ *
+ * Implementation of CORBA backend used for querying CORBA server for
+ * information about domain.
  */
 
 #include <assert.h>
@@ -7,200 +10,221 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <orbit/orbit.h>
+#include <ORBitservices/CosNaming.h>
 
 /* This header file was generated from the idl */
 #include "ccReg.h"
 #include "whois-client.h"
 
+/** A shortcut for testing of CORBA exception appearence. */
 #define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
-
-
-
-/**
- * Read string from stream.
- */
-static gchar*
-read_string_from_stream(FILE *stream)
-{
-	gulong length;
-	gchar *objref;
-	int c;
-	int i = 0;
-
-	length = 4 * 1024; /* should suffice ordinary IOR string */
-	objref = g_malloc0(length * sizeof (gchar));
-	if (objref == NULL) return NULL;
-
-	/* skip leading white space */
-	while ((c = fgetc(stream)) !=EOF && g_ascii_isspace(c));
-	/* POST: c==EOF or c=first character */
-
-	if (c != EOF) {
-		/* append c to string while more c exist and c not white space */
-		do {
-			/* check size */
-			if (i >= length - 1) {
-				length *= 2;
-				objref = g_realloc(objref, length);
-			}
-			objref[i++] = c;
-		}while ((c = fgetc(stream)) != EOF && !g_ascii_isspace(c));
-	}
-	/* terminate string with \0 */
-	objref[i] = '\0';
-
-	return objref;
-}
+/** Maximal # of retries when COMM_FAILURE exception during CORBA call occurs. */
+#define MAX_RETRIES	3
+/** Sleep interval in microseconds between retries. */
+#define RETR_SLEEP	100000
+/** True if CORBA exception is COMM_FAILURE, which is used in retry loop. */
+#define IS_NOT_COMM_FAILURE_EXCEPTION(_ev)                             \
+	(strcmp(_ev->_id, "IDL:omg.org/CORBA/COMM_FAILURE:1.0"))
+/** True if CORBA exception is DomainNotFound */
+#define IS_DOMAIN_NOTFOUND_EXCEPTION(_ev)                             \
+	(!strcmp(_ev->_id, "IDL:ccReg/Whois/DomainNotFound:1.0"))
 
 
 /**
- * Import object from file.
+ * Persistent structure initialized at startup, needed for corba function calls.
  */
-static CORBA_Object
-import_object_from_file (CORBA_ORB orb, CORBA_char *filename,
-			      CORBA_Environment *ev)
+struct whois_corba_globs_t {
+	CORBA_ORB	corba;   /**< Global corba object. */
+	ccReg_Whois	service; /**< Service is ccReg object's stub. */
+};
+
+whois_corba_globs *
+whois_corba_init(const char *ns_host, const char *obj_name)
 {
-        FILE         *file;
-	gchar        *objref;
-        CORBA_Object  obj = CORBA_OBJECT_NIL;
-  
-        if ((file = fopen(filename, "r")) == NULL) {
-		ev->_major = CORBA_SYSTEM_EXCEPTION;
-		return CORBA_OBJECT_NIL;		
-     	}
-	objref = read_string_from_stream(file);
-
-	if (!objref || strlen(objref) == 0) {
-		if (objref) g_free (objref);
-		ev->_major = CORBA_SYSTEM_EXCEPTION;
-		fclose (file);
-		return CORBA_OBJECT_NIL;		
-	}
-
-	obj = (CORBA_Object) CORBA_ORB_string_to_object(orb, objref, ev);
-	g_free (objref);
-
-        fclose (file);
-        return obj;
-}
+	CORBA_Environment  ev[1];
+	CORBA_ORB    global_orb = CORBA_OBJECT_NIL;	/* global orb */
+	CosNaming_NamingContext ns; /* used for nameservice */
+	whois_corba_globs *globs;	/* to store global_orb and service */
+	ccReg_Whois service = CORBA_OBJECT_NIL;	/* object's stub */
+	/* Whois name */
+	CosNaming_NameComponent *name_component;
+	CosNaming_Name *cos_name; /* Cos name used in service lookup */
+	char ns_string[150];
+	int argc = 0;
  
-/**
- * Get domain info. If there is no such a registered domain, NULL is
- * returned.
- * @par service Corba service
- * @par ev Corba environment
- * @par wd Whois data (domain info)
- */
-static void
-client_run(ccReg_Whois service, CORBA_Environment *ev, whois_data_t *wd)
-{
-        ccReg_DomainWhois *dm;
+	assert(ns_host != NULL);
+	assert(obj_name != NULL);
 
-        dm =  ccReg_Whois_Domain(service , wd->dname , ev);
-	if (raised_exception(ev)) {
-		/* do NOT try to free dm even if not NULL -> segfault */
-		return;
+	name_component = (CosNaming_NameComponent *)
+		malloc(2 * sizeof(CosNaming_NameComponent));
+	name_component[0].id = CORBA_string_dup("ccReg");
+	name_component[0].kind = CORBA_string_dup("context");
+	name_component[1].id = CORBA_string_dup(obj_name);
+	name_component[1].kind = CORBA_string_dup("Object");
+	cos_name = (CosNaming_Name *) malloc (sizeof(CosNaming_Name));
+	cos_name->_maximum = cos_name->_length = 2;
+	cos_name->_buffer = name_component;
+	CORBA_sequence_set_release(cos_name, FALSE);
+
+	ns_string[149] = 0;
+	snprintf(ns_string, 149, "corbaloc::%s/NameService", ns_host);
+	CORBA_exception_init(ev);
+	/* create orb object */
+	global_orb = CORBA_ORB_init(&argc, NULL, "orbit-local-orb", ev);
+	if (global_orb == CORBA_OBJECT_NIL || raised_exception(ev)) {
+		CORBA_exception_free(ev);
+		return NULL;
 	}
-
-	/* check if there is such a registered domain */
-	if (dm->status == 1) {
-		int i;
-
-		wd->valid = 1;
-		if ((wd->nameservers = malloc((sizeof wd->nameservers[0]) *
-						dm->ns._length)) == NULL) {
-			ev->_major = CORBA_SYSTEM_EXCEPTION;
-			CORBA_free (dm);
-			return;
-		}
-		wd->created = dm->created;
-		wd->expired = dm->expired;
-		wd->registrarName = strdup(dm->registrarName);
-		wd->registrarUrl = strdup(dm->registrarUrl);
-		for (i = 0; i < dm->ns._length; i++)
-			wd->nameservers[i] = strdup(dm->ns._buffer[i]);
-		wd->ns_length = dm->ns._length;
-	}
-	else wd->valid = 0;
-
-        CORBA_free (dm);
-}
-
-/* this one is called from wrapper bellow */
-static int
-whois_corba_call_int(whois_data_t *wd)
-{
-        CORBA_Environment ev[1];
-        CORBA_exception_init(ev);
-	CORBA_char filename[] = "/tmp/ccReg.ref";
-	CORBA_ORB  global_orb = CORBA_OBJECT_NIL; /* global orb */
-        ccReg_EPP epp_service = CORBA_OBJECT_NIL;
-        ccReg_Whois whois_service  = CORBA_OBJECT_NIL;
-	int	rc;
- 
-
-        global_orb = CORBA_ORB_init(0, NULL, "orbit-local-orb", ev);
-	if (raised_exception(ev)) {
-		if (global_orb != CORBA_OBJECT_NIL)
-			CORBA_ORB_destroy(global_orb, ev);
-		return CORBA_INIT_FAILED;
-	}
-
-
-
-
-
-
-	epp_service = (ccReg_EPP)
-		import_object_from_file(global_orb, filename, ev);
-	if (raised_exception(ev)) {
-		/* releasing managed object */
-		CORBA_Object_release(epp_service, ev);
+	/* get nameservice */
+	ns = (CosNaming_NamingContext) CORBA_ORB_string_to_object(global_orb,
+			ns_string, ev);
+	if (ns == CORBA_OBJECT_NIL || raised_exception(ev)) {
+		CORBA_exception_free(ev);
 		/* tear down the ORB */
-		if (global_orb != CORBA_OBJECT_NIL)
-			CORBA_ORB_destroy(global_orb, ev);
-		return CORBA_IMPORT_FAILED;
+		CORBA_ORB_destroy(global_orb, ev);
+		CORBA_exception_free(ev);
+		return NULL;
 	}
+	service =(ccReg_Whois) CosNaming_NamingContext_resolve(ns, cos_name, ev);
+	if (service == CORBA_OBJECT_NIL || raised_exception(ev)) {
+		CORBA_exception_free(ev);
+		/* release nameservice */
+		CORBA_Object_release(ns, ev);
+		CORBA_exception_free(ev);
+		/* tear down the ORB */
+		CORBA_ORB_destroy(global_orb, ev);
+		CORBA_exception_free(ev);
+		return NULL;
+	}
+	/* release nameservice */
+	CORBA_Object_release(ns, ev);
+	CORBA_exception_free(ev);
 
-        whois_service = (ccReg_Whois)  ccReg_EPP_getWhois( epp_service , ev);
+	/* wrap orb and service in one struct */
+	if ((globs = malloc(sizeof *globs)) == NULL) {
+		/* releasing managed object */
+		CORBA_Object_release(service, ev);
+		CORBA_exception_free(ev);
+		/* tear down the ORB */
+		CORBA_ORB_destroy(global_orb, ev);
+		CORBA_exception_free(ev);
+		return NULL;
+	}
+	globs->corba = global_orb;
+	globs->service = service;
 
-        if (raised_exception(ev)) {
-                /* releasing managed object */
-                CORBA_Object_release(whois_service, ev);
-                /* tear down the ORB */
-                if (global_orb != CORBA_OBJECT_NIL)
-                        CORBA_ORB_destroy(global_orb, ev);
-                return CORBA_IMPORT_FAILED;
-        }
-
-
-
-	client_run(whois_service, ev, wd);
-
-	/* was everything OK? */
-	if (raised_exception(ev)) rc = CORBA_SERVICE_FAILED;
-	else rc = CORBA_OK;
- 
-	/* releasing managed object */
-        CORBA_Object_release(whois_service, ev);
-	CORBA_Object_release(epp_service, ev);
-	/* tear down the ORB */
-	if (global_orb != CORBA_OBJECT_NIL) CORBA_ORB_destroy(global_orb, ev);
- 
-        return rc;
+	return globs;
 }
 
-/**
- * wrapper around whois_corba_call_int
- * The problem is probably in linking apache and corba together.
- * Parameters on stack are not handled properly, this wrapper solves
- * the problem for now, although it's dirty hack.
- */
-int
-whois_corba_call(whois_data_t *wd)
+void
+whois_corba_init_cleanup(whois_corba_globs *globs)
 {
-	return whois_corba_call_int(wd);
+	CORBA_Environment ev[1];
+	CORBA_exception_init(ev);
+
+	/* releasing managed object */
+	CORBA_Object_release(globs->service, ev);
+	CORBA_exception_free(ev); /* we don't care about exception */
+	/* tear down the ORB */
+	CORBA_ORB_destroy(globs->corba, ev);
+	CORBA_exception_free(ev); /* we don't care about exception */
+
+	free(globs);
+}
+
+int
+whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
+		char *timebuf, unsigned timebuflen)
+{
+	CORBA_Environment ev[1];
+	CORBA_string	timestamp;
+	whois_data_t	*wd_temp;
+	ccReg_DomainWhois *dm; /* domain data */
+	int	retr; /* retry counter */
+	int	i;
+ 
+	*wd = NULL;
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call domain method */
+		dm = ccReg_Whois_getDomain(globs->service, dname, &timestamp,ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop*/
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		int ret;
+		if (IS_DOMAIN_NOTFOUND_EXCEPTION(ev)) {
+			/* get timestamp */
+			timebuf[timebuflen - 1] = '\0';
+			strncpy(timebuf, *((char **) ev->_any._value),
+					timebuflen - 1);
+			ret = CORBA_DOMAIN_FREE;
+		}
+		else
+			ret = CORBA_SERVICE_FAILED;
+		CORBA_exception_free(ev);
+		return ret;
+	}
+	CORBA_exception_free(ev);
+		//return CORBA_DOMAIN_FREE;
+
+	/* get time of response generation */
+	timebuf[timebuflen - 1] = '\0';
+	strncpy(timebuf, timestamp, timebuflen - 1);
+	CORBA_free(timestamp);
+
+	/* map status value */
+	if (dm->status == ccReg_WHOIS_ACTIVE)
+		wd_temp->status = DOMAIN_ACTIVE;
+	else
+		wd_temp->status = DOMAIN_EXPIRED;
+
+	/* allocate all needed items */
+	if ((*wd = (whois_data_t *) calloc(1, sizeof **wd)) == NULL) {
+		CORBA_free(dm);
+		return CORBA_INTERNAL_ERROR;
+	}
+	wd_temp = *wd;
+	wd_temp->nameservers = malloc(sizeof(char *) * dm->ns._length);
+	if ((wd_temp)->nameservers == NULL) {
+		CORBA_free(dm);
+		free(wd_temp);
+		*wd = NULL;
+		return CORBA_INTERNAL_ERROR;
+	}
+	wd_temp->techs = malloc(sizeof(char *) * dm->tech._length);
+	if (wd_temp->techs == NULL) {
+		CORBA_free(dm);
+		free(wd_temp->nameservers);
+		free(wd_temp);
+		*wd = NULL;
+		return CORBA_INTERNAL_ERROR;
+	}
+	/* copy nameservers */
+	for (i = 0; i < dm->ns._length; i++)
+		wd_temp->nameservers[i] = strdup(dm->ns._buffer[i]);
+	wd_temp->ns_length = dm->ns._length;
+	/* copy technical contacts */
+	for (i = 0; i < dm->tech._length; i++)
+		wd_temp->techs[i] = strdup(dm->tech._buffer[i]);
+	/* copy the rest of the items */
+	wd_temp->tech_length = dm->tech._length;
+	wd_temp->created = strdup(dm->created);
+	wd_temp->expired = strdup(dm->expired);
+	wd_temp->registrarName = strdup(dm->registrarName);
+	wd_temp->registrarUrl = strdup(dm->registrarUrl);
+
+        CORBA_free(dm);
+        return CORBA_OK;
 }
 
 void
@@ -209,11 +233,18 @@ whois_release_data(whois_data_t *wd)
 	int i;
 
 	assert (wd != NULL);
-	/* free everything except wd->dname which is handled in apache */
+
 	free(wd->registrarName);
 	free(wd->registrarUrl);
+	free(wd->created);
+	free(wd->expired);
 	for (i = 0; i < wd->ns_length; i++) {
 		free(wd->nameservers[i]);
 	}
 	free(wd->nameservers);
+	for (i = 0; i < wd->tech_length; i++) {
+		free(wd->techs[i]);
+	}
+	free(wd->techs);
+	free(wd);
 }
