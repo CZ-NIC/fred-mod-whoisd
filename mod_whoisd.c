@@ -483,7 +483,7 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
  */
 static int whois_cleanup(void *data)
 {
-	//whois_corba_init_cleanup((whois_corba_globs *) data);
+	whois_corba_init_cleanup((whois_corba_globs *) data);
 	return 0;
 }
 

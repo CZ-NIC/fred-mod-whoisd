@@ -47,8 +47,7 @@ whois_corba_init(const char *ns_host, const char *obj_name)
 	CosNaming_NamingContext ns; /* used for nameservice */
 	whois_corba_globs *globs;	/* to store global_orb and service */
 	ccReg_Whois service = CORBA_OBJECT_NIL;	/* object's stub */
-	/* Whois name */
-	CosNaming_NameComponent *name_component;
+	CosNaming_NameComponent *name_component; /* Whois' name */
 	CosNaming_Name *cos_name; /* Cos name used in service lookup */
 	char ns_string[150];
 	int argc = 0;
@@ -56,6 +55,7 @@ whois_corba_init(const char *ns_host, const char *obj_name)
 	assert(ns_host != NULL);
 	assert(obj_name != NULL);
 
+	/* build a name of Whois object */
 	name_component = (CosNaming_NameComponent *)
 		malloc(2 * sizeof(CosNaming_NameComponent));
 	name_component[0].id = CORBA_string_dup("ccReg");
@@ -86,6 +86,7 @@ whois_corba_init(const char *ns_host, const char *obj_name)
 		CORBA_exception_free(ev);
 		return NULL;
 	}
+	/* get Whois object */
 	service =(ccReg_Whois) CosNaming_NamingContext_resolve(ns, cos_name, ev);
 	if (service == CORBA_OBJECT_NIL || raised_exception(ev)) {
 		CORBA_exception_free(ev);
