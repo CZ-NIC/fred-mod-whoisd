@@ -477,6 +477,17 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 }
 
 /**
+ * Cleanup routine, currently only wrapper around whois_corba_init_cleanup().
+ *
+ * @param data Corba globs.
+ */
+static int whois_cleanup(void *data)
+{
+	//whois_corba_init_cleanup((whois_corba_globs *) data);
+	return 0;
+}
+
+/**
  * Postconfig hook is a good occasion to check consistency of mod_whoisd
  * configuration and to initialize CORBA component.
  *
@@ -526,6 +537,10 @@ static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 					 "mod_whoisd: corba initialization failed");
 				return HTTP_INTERNAL_SERVER_ERROR;
 			}
+			/* register cleanup for corba globs */
+			apr_pool_cleanup_register(p, sc->corba_globs, whois_cleanup,
+					apr_pool_cleanup_null);
+					
 		}
 		/* get next virtual server */
 		s = s->next;

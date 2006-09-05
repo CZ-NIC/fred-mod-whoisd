@@ -144,6 +144,11 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 	int	retr; /* retry counter */
 	int	i;
  
+	assert(globs->service != NULL);
+	assert(dname != NULL);
+	assert(timebuf != NULL);
+	assert(timebuflen > 0);
+
 	*wd = NULL;
 	/* retry loop */
 	for (retr = 0; retr < MAX_RETRIES; retr++) {
@@ -174,18 +179,11 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 		return ret;
 	}
 	CORBA_exception_free(ev);
-		//return CORBA_DOMAIN_FREE;
 
 	/* get time of response generation */
 	timebuf[timebuflen - 1] = '\0';
 	strncpy(timebuf, timestamp, timebuflen - 1);
 	CORBA_free(timestamp);
-
-	/* map status value */
-	if (dm->status == ccReg_WHOIS_ACTIVE)
-		wd_temp->status = DOMAIN_ACTIVE;
-	else
-		wd_temp->status = DOMAIN_EXPIRED;
 
 	/* allocate all needed items */
 	if ((*wd = (whois_data_t *) calloc(1, sizeof **wd)) == NULL) {
@@ -221,6 +219,12 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 	wd_temp->expired = strdup(dm->expired);
 	wd_temp->registrarName = strdup(dm->registrarName);
 	wd_temp->registrarUrl = strdup(dm->registrarUrl);
+	/* map status value */
+	if (dm->status == ccReg_WHOIS_ACTIVE)
+		wd_temp->status = DOMAIN_ACTIVE;
+	else
+		wd_temp->status = DOMAIN_EXPIRED;
+
 
         CORBA_free(dm);
         return CORBA_OK;
