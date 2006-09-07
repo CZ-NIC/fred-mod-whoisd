@@ -21,10 +21,10 @@ PKG_TARNAME = @PACKAGE_TARNAME@
 PKG_VERSION = @PACKAGE_VERSION@
 
 DISTFILES   = configure.ac disc.txt Makefile.in mod_whoisd.c whois-client.c whois-client.h
-EXECFILES   = mod_whoisd.so
+EXECFILES   = mod_whoisd.so test
 IDLOUT      = ${IDLPREFIX}.h ${IDLPREFIX}-common.c ${IDLPREFIX}-stubs.c
 OBJS        = whois-client.o ${IDLPREFIX}-common.o ${IDLPREFIX}-stubs.o
-ALL_OBJS    = mod_whoisd.o $(OBJS)
+ALL_OBJS    = mod_whoisd.o $(OBJS) test.o
 TARDIR      = $(PKG_TARNAME)-$(PKG_VERSION)
 
 ORB_LDFLAGS:= $(shell $(PKG-CONFIG) --libs ORBit-2.0)
@@ -50,9 +50,9 @@ INSTALLDIR := $(shell $(APXS) -q LIBEXECDIR)
 .PHONY: all build install uninstall clean distclean realclean doc dist
 .SUFFIXES:
 
-all: build
+all: build doc
 
-build: $(EXECFILES) doc
+build: $(EXECFILES)
 
 install: mod_whoisd.so
 	$(INSTALL) --mode 0755 mod_whoisd.so $(INSTALLDIR)
@@ -60,8 +60,8 @@ install: mod_whoisd.so
 uninstall:
 	-rm -f $(INSTALLDIR)/mod_whoisd.so
 
-mod_whoisd.so: $(ALL_OBJS)
-	$(CC) -Wl,-rpath $(AP_INSTALLDIR) -Bshareable -shared -o mod_whoisd.so $(LDFLAGS) $(LIBS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(AP_LIBS) $(ALL_OBJS)
+mod_whoisd.so: mod_whoisd.o $(OBJS)
+	$(CC) -Wl,-rpath $(AP_INSTALLDIR) -Bshareable -shared -o mod_whoisd.so $(LDFLAGS) $(LIBS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(AP_LIBS) $(OBJS) mod_whoisd.o
 
 mod_whoisd.o: mod_whoisd.c whois-client.h
 	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(AP_CPPFLAGS) $(AP_CFLAGS) $(AP_INCLUDE) $(DEFS) -c mod_whoisd.c
@@ -77,6 +77,12 @@ ${IDLPREFIX}-stubs.o: ${IDLPREFIX}-stubs.c ${IDLPREFIX}.h
 
 $(IDLOUT): $(IDL)
 	$(ORBIT-IDL) --noskels $(IDL)
+
+test.o: test.c whois-client.h
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEFS) test.c
+
+test: test.o $(OBJS)
+	$(CC) -o test $(LDFLAGS) $(LIBS) $(ORB_LDFLAGS) $(OBJS) test.o
 
 distclean:
 	-rm -f $(ALL_OBJS)

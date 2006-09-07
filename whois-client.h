@@ -18,10 +18,9 @@
  * @{
  */
 #define CORBA_OK	0 /**< No error occured. */
-#define CORBA_INIT_FAILED	1 /**< Global ORB initialization failed. */
+#define CORBA_DOMAIN_FREE	1 /**< No info for domain. */
 #define CORBA_SERVICE_FAILED	2 /**< Could not obtain object's reference. */
 #define CORBA_INTERNAL_ERROR	3 /**< Internal error == malloc failed. */
-#define CORBA_DOMAIN_FREE	4 /**< No info for domain. */
 /**
  * @}
  */
