@@ -113,8 +113,8 @@ static apr_status_t process_whois_request(request_rec *r)
 	time2 = apr_time_now();
 
 	ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, r->connection,
-			"Request for \"%s\" processed in %lld ms",
-			r->uri, (time2 - time1) / 1000);
+			"Request for \"%s\" processed in %u ms",
+			r->uri, (unsigned int) (time2 - time1) / 1000);
 
 	/* this brigade is used for response */
 	bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
