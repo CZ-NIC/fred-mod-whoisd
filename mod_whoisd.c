@@ -40,6 +40,10 @@
 /* CORBA backend */
 #include "whois-client.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /** This default desclaimer should never be used in production release :). */
 #define DEFAULT_DISCLAIMER	"Domain Information over Whois protocol\n"
 /**

@@ -17,6 +17,10 @@
 /* This header file was generated from the idl */
 #include "whois-client.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /** A shortcut for testing of CORBA exception appearence. */
 #define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
 /** Maximal # of retries when COMM_FAILURE exception during CORBA call occurs. */
