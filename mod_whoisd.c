@@ -132,7 +132,8 @@ static apr_status_t process_whois_request(request_rec *r)
 	apr_brigade_printf(bb, NULL, NULL, "Whoisd Server Version: %s\n\n",
 			PACKAGE_VERSION);
 	apr_brigade_puts(bb, NULL, NULL, sc->disclaimer);
-	apr_brigade_printf(bb, NULL, NULL, "Timestamp: %s\n", timebuf);
+	if (rc != CORBA_SERVICE_FAILED && rc != CORBA_INTERNAL_ERROR)
+		apr_brigade_printf(bb, NULL, NULL, "Timestamp: %s\n", timebuf);
 
 	/*
 	 * Every line which doesn't contain actual data must be preceeded by
@@ -188,13 +189,25 @@ static apr_status_t process_whois_request(request_rec *r)
 
 	/* analyze return code from CORBA function call */
 	switch (rc) {
+		case CORBA_DOMAIN_INVALID:
+			apr_brigade_puts(bb, NULL, NULL,   "Invalid domain name.\n");
+			break;
+		case CORBA_DOMAIN_LONG:
+			apr_brigade_puts(bb, NULL, NULL,   "Domain name is too long.\n");
+			break;
+		case CORBA_DOMAIN_BAD_ZONE:
+			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", r->uri);
+			apr_brigade_puts(bb, NULL, NULL,   "Status:      UNKNOWN\n");
+			apr_brigade_puts(bb, NULL, NULL,   "Domain is not managed by "
+					"this registry.\n");
+			break;
 		case CORBA_DOMAIN_FREE:
 			apr_brigade_printf(bb, NULL, NULL, "Domain:      %s\n", r->uri);
 			apr_brigade_puts(bb, NULL, NULL,   "Status:      FREE\n");
 			break;
 		case CORBA_OK:
 			/* generate domain info */
-			apr_brigade_printf(bb, NULL, NULL,"Domain:      %s\n", r->uri);
+			apr_brigade_printf(bb, NULL, NULL,"Domain:      %s\n", wd->fqdn);
 			/* domain status */
 			if (wd->status == DOMAIN_ACTIVE)
 				apr_brigade_puts(bb,NULL,NULL,"Status:      REGISTERED\n");
@@ -227,6 +240,12 @@ static apr_status_t process_whois_request(request_rec *r)
 						wd->nameservers[i]);
 
 			whois_release_data(wd);
+			break;
+		case CORBA_UNKNOWN_ERROR:
+			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
+					"Corba returned unknown error type - check that mod_whoisd "
+					"is not out of sync with IDL file.");
+			apr_brigade_puts(bb, NULL, NULL, INT_ERROR_MSG);
 			break;
 		case CORBA_INTERNAL_ERROR:
 			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
@@ -550,6 +569,8 @@ static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		s = s->next;
 	}
 
+	ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+		 "mod_whoisd: Module successfully configured");
 	return (err_seen) ? HTTP_INTERNAL_SERVER_ERROR : OK;
 }
 

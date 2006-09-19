@@ -31,8 +31,8 @@
 #define IS_NOT_COMM_FAILURE_EXCEPTION(_ev)                             \
 	(strcmp(_ev->_id, "IDL:omg.org/CORBA/COMM_FAILURE:1.0"))
 /** True if CORBA exception is DomainNotFound */
-#define IS_DOMAIN_NOTFOUND_EXCEPTION(_ev)                             \
-	(!strcmp(_ev->_id, "IDL:ccReg/Whois/DomainNotFound:1.0"))
+#define IS_DOMAIN_ERROR(_ev)                             \
+	(!strcmp(_ev->_id, "IDL:ccReg/Whois/DomainError:1.0"))
 
 
 /**
@@ -171,12 +171,30 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 
 	if (raised_exception(ev)) {
 		int ret;
-		if (IS_DOMAIN_NOTFOUND_EXCEPTION(ev)) {
+		if (IS_DOMAIN_ERROR(ev)) {
+			ccReg_Whois_DomainError	*de;
+
+			de = (ccReg_Whois_DomainError *) ev->_any._value;
 			/* get timestamp */
 			timebuf[timebuflen - 1] = '\0';
-			strncpy(timebuf, *((char **) ev->_any._value),
-					timebuflen - 1);
-			ret = CORBA_DOMAIN_FREE;
+			strncpy(timebuf, de->timestamp, timebuflen - 1);
+			switch (de->type) {
+				case ccReg_WE_DOMAIN_BAD_ZONE:
+					ret = CORBA_DOMAIN_BAD_ZONE;
+					break;
+				case ccReg_WE_DOMAIN_LONG:
+					ret = CORBA_DOMAIN_LONG;
+					break;
+				case ccReg_WE_INVALID:
+					ret = CORBA_DOMAIN_INVALID;
+					break;
+				case ccReg_WE_NOTFOUND:
+					ret = CORBA_DOMAIN_FREE;
+					break;
+				default:
+					ret = CORBA_UNKNOWN_ERROR;
+					break;
+			}
 		}
 		else
 			ret = CORBA_SERVICE_FAILED;
@@ -196,6 +214,7 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 		return CORBA_INTERNAL_ERROR;
 	}
 	wd_temp = *wd;
+	wd_temp->fqdn = strdup(dm->fqdn);
 	wd_temp->nameservers = malloc(sizeof(char *) * dm->ns._length);
 	if ((wd_temp)->nameservers == NULL) {
 		CORBA_free(dm);
@@ -242,6 +261,7 @@ whois_release_data(whois_data_t *wd)
 
 	assert (wd != NULL);
 
+	free(wd->fqdn);
 	free(wd->registrarName);
 	free(wd->registrarUrl);
 	free(wd->created);

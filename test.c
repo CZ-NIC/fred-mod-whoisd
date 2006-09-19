@@ -11,7 +11,7 @@ main(int argc, char *argv[])
 	char	buf[100];
 	int	i, quit;
 
-	globs = whois_corba_init("localhost", "PyWhois");
+	globs = whois_corba_init("curlew", "Whois");
 	if (globs == NULL) {
 		fprintf(stderr, "Error in CORBA initialization\n");
 		exit(2);
@@ -29,6 +29,18 @@ main(int argc, char *argv[])
 				break;
 			case CORBA_DOMAIN_FREE:
 				printf("Domain '%s' is FREE\n", argv[i]);
+				break;
+			case CORBA_DOMAIN_INVALID:
+				printf("Domain '%s' is INVALID\n", argv[i]);
+				break;
+			case CORBA_DOMAIN_LONG:
+				printf("Domain '%s' is LONG\n", argv[i]);
+				break;
+			case CORBA_DOMAIN_BAD_ZONE:
+				printf("Domain '%s' is in BAD ZONE\n", argv[i]);
+				break;
+			case CORBA_UNKNOWN_ERROR:
+				fprintf(stderr, "Unknown ERROR from server\n");
 				break;
 			case CORBA_SERVICE_FAILED:
 				fprintf(stderr, "CORBA service failed\n");

@@ -18,9 +18,13 @@
  * @{
  */
 #define CORBA_OK	0 /**< No error occured. */
-#define CORBA_DOMAIN_FREE	1 /**< No info for domain. */
-#define CORBA_SERVICE_FAILED	2 /**< Could not obtain object's reference. */
-#define CORBA_INTERNAL_ERROR	3 /**< Internal error == malloc failed. */
+#define CORBA_SERVICE_FAILED	1 /**< Could not obtain object's reference. */
+#define CORBA_INTERNAL_ERROR	2 /**< Internal error == malloc failed. */
+#define CORBA_DOMAIN_FREE	3 /**< No info for domain. */
+#define CORBA_DOMAIN_INVALID	4 /**< Invalid identificator of domain. */
+#define CORBA_DOMAIN_LONG	5 /**< Domain name is too long. */
+#define CORBA_DOMAIN_BAD_ZONE	6 /**< Domain is not in our zone. */
+#define CORBA_UNKNOWN_ERROR	7 /**< Unknown error returned over CORBA. */
 /**
  * @}
  */
@@ -43,6 +47,7 @@ typedef enum { DOMAIN_ACTIVE, DOMAIN_EXPIRED }domain_status;
  * by caller.
  */
 typedef struct {
+	char  *fqdn; /**< Name of a domain. */
 	domain_status status; /**< Domain's status. */
 	char  *created;  /**< Date a domain was created. */
 	char  *expired;  /**< Expiration date of a domain. */
