@@ -10,15 +10,28 @@ main(int argc, char *argv[])
 	whois_data_t	*wd;
 	char	buf[100];
 	int	i, quit;
+	const char	*host = NULL;
 
-	globs = whois_corba_init("curlew", "Whois");
+	for (i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "-h")) {
+			if (++i < argc) {
+				host = argv[i];
+				i++;
+			}
+			break;
+		}
+	}
+	if (host == NULL)
+		host = "localhost";
+
+	globs = whois_corba_init(host, "Whois");
 	if (globs == NULL) {
 		fprintf(stderr, "Error in CORBA initialization\n");
 		exit(2);
 	}
 	quit = 0;
 	/* do the work */
-	for (i = 1; i < argc; i++) {
+	for (; i < argc; i++) {
 		int	ret;
 
 		ret = whois_corba_call(globs, argv[i], &wd, buf, 100);

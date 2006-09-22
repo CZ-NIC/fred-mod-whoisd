@@ -54,7 +54,8 @@
 request.\nPlease try again later.\n"
 
 #define MIN_WHOIS_REQUEST_LENGTH 1   /**< Minimal object (domain) name length. */
-#define MAX_WHOIS_REQUEST_LENGTH 300 /**< Maximal object (domain) name length. */
+/** Maximal allowed length of object (domain) name. */
+#define MAX_WHOIS_REQUEST_LENGTH 1000
 /** Length of buffer used to hold time of response generation. */
 #define TIME_BUFFER_LENGTH 50
 

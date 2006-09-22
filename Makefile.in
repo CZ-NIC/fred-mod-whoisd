@@ -21,10 +21,10 @@ PKG_TARNAME = @PACKAGE_TARNAME@
 PKG_VERSION = @PACKAGE_VERSION@
 
 DISTFILES   = configure.ac disc.txt Makefile.in mod_whoisd.c whois-client.c whois-client.h
-EXECFILES   = mod_whoisd.so test
+EXECFILES   = mod_whoisd.so whois_test
 IDLOUT      = ${IDLPREFIX}.h ${IDLPREFIX}-common.c ${IDLPREFIX}-stubs.c
 OBJS        = whois-client.o ${IDLPREFIX}-common.o ${IDLPREFIX}-stubs.o
-ALL_OBJS    = mod_whoisd.o $(OBJS) test.o
+ALL_OBJS    = mod_whoisd.o $(OBJS) whois_test.o
 TARDIR      = $(PKG_TARNAME)-$(PKG_VERSION)
 
 ORB_LDFLAGS:= $(shell $(PKG-CONFIG) --libs ORBit-2.0)
@@ -78,11 +78,14 @@ ${IDLPREFIX}-stubs.o: ${IDLPREFIX}-stubs.c ${IDLPREFIX}.h
 $(IDLOUT): $(IDL)
 	$(ORBIT-IDL) --noskels $(IDL)
 
-test.o: test.c whois-client.h
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEFS) test.c
+whois_test.o: whois_test.c whois-client.h
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEFS) whois_test.c
 
-test: test.o $(OBJS)
-	$(CC) -o test $(LDFLAGS) $(LIBS) $(ORB_LDFLAGS) $(OBJS) test.o
+whois_test: whois_test.o $(OBJS)
+	$(CC) -o whois_test $(LDFLAGS) $(LIBS) $(ORB_LDFLAGS) $(OBJS) whois_test.o
+
+test: whois_test
+	python test.py
 
 distclean:
 	-rm -f $(ALL_OBJS)

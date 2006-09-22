@@ -69,7 +69,7 @@ whois_corba_init(const char *ns_host, const char *obj_name)
 	cos_name = (CosNaming_Name *) malloc (sizeof(CosNaming_Name));
 	cos_name->_maximum = cos_name->_length = 2;
 	cos_name->_buffer = name_component;
-	CORBA_sequence_set_release(cos_name, FALSE);
+	CORBA_sequence_set_release(cos_name, CORBA_TRUE);
 
 	ns_string[149] = 0;
 	snprintf(ns_string, 149, "corbaloc::%s/NameService", ns_host);
