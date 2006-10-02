@@ -85,7 +85,7 @@ whois_test: whois_test.o $(OBJS)
 	$(CC) -o whois_test $(LDFLAGS) $(LIBS) $(ORB_LDFLAGS) $(OBJS) whois_test.o
 
 test: whois_test
-	python test.py
+	python test.py curlew
 
 distclean:
 	-rm -f $(ALL_OBJS)

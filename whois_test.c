@@ -27,7 +27,7 @@ main(int argc, char *argv[])
 	globs = whois_corba_init(host, "Whois");
 	if (globs == NULL) {
 		fprintf(stderr, "Error in CORBA initialization\n");
-		exit(2);
+		return 3;
 	}
 	quit = 0;
 	/* do the work */
@@ -54,10 +54,11 @@ main(int argc, char *argv[])
 				break;
 			case CORBA_UNKNOWN_ERROR:
 				fprintf(stderr, "Unknown ERROR from server\n");
+				quit = 1;
 				break;
 			case CORBA_SERVICE_FAILED:
 				fprintf(stderr, "CORBA service failed\n");
-				quit = 1;
+				quit = 2;
 				break;
 			case CORBA_INTERNAL_ERROR:
 				fprintf(stderr, "Malloc failed\n");
@@ -71,5 +72,5 @@ main(int argc, char *argv[])
 		if (quit) break;
 	}
 	whois_corba_init_cleanup(globs);
-	return (quit) ? 1 : 0;
+	return quit;
 }
