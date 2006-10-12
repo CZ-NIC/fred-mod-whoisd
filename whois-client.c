@@ -29,10 +29,10 @@
 #define RETR_SLEEP	100000
 /** True if CORBA exception is COMM_FAILURE, which is used in retry loop. */
 #define IS_NOT_COMM_FAILURE_EXCEPTION(_ev)                             \
-	(strcmp(_ev->_id, "IDL:omg.org/CORBA/COMM_FAILURE:1.0"))
+	(strcmp((_ev)->_id, "IDL:omg.org/CORBA/COMM_FAILURE:1.0"))
 /** True if CORBA exception is DomainNotFound */
 #define IS_DOMAIN_ERROR(_ev)                             \
-	(!strcmp(_ev->_id, "IDL:ccReg/Whois/DomainError:1.0"))
+	(!strcmp((_ev)->_id, "IDL:ccReg/Whois/DomainError:1.0"))
 
 
 /**
