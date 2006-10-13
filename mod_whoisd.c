@@ -219,10 +219,13 @@ static apr_status_t process_whois_request(request_rec *r)
 			/* expiration date */
 			apr_brigade_printf(bb, NULL, NULL,"Expiration:  %s\n\n",wd->expired);
 			/* Registrant info */
-			apr_brigade_puts(bb, NULL, NULL,  "Registrant:\n");
-			apr_brigade_printf(bb, NULL, NULL,
-					"   Please visit webbased whois at %s for more "
-					"information.\n\n", sc->webwhois_url);
+			apr_brigade_puts(bb, NULL, NULL,  "Registrant:");
+			if (wd->enum_domain)
+				apr_brigade_printf(bb, NULL, NULL, "  Not available\n");
+			else
+				apr_brigade_printf(bb, NULL, NULL,
+						"\n   Please visit webbased whois at %s for more\n"
+						"information.\n\n", sc->webwhois_url);
 			/* Registrar info */
 			apr_brigade_puts(bb, NULL, NULL, "Registrar:\n");
 			apr_brigade_printf(bb, NULL, NULL, "   Name:    %s\n",

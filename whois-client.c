@@ -215,6 +215,7 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 	}
 	wd_temp = *wd;
 	wd_temp->fqdn = strdup(dm->fqdn);
+	wd_temp->enum_domain = dm->enum_domain;
 	wd_temp->nameservers = malloc(sizeof(char *) * dm->ns._length);
 	if ((wd_temp)->nameservers == NULL) {
 		CORBA_free(dm);
