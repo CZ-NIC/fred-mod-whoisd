@@ -1,0 +1,4 @@
+version 1.2.0
+
+	* In IDL was added flag 'enum' which tells if it is enum domain or
+	not. A link to web site is displayed only if this flag is false.
