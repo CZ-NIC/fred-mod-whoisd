@@ -33,6 +33,7 @@
 #include "apr_pools.h"
 #include "apr_strings.h"
 #include "apr_time.h"
+#include "apr_hash.h"
 
 #include "scoreboard.h"
 #include "util_filter.h"
@@ -69,10 +70,8 @@ typedef struct {
 	const char *disclaimer_filename; /**< File with disclaimer. */
 	char *disclaimer; /**< Disclaimer as a string. */
 	const char *webwhois_url; /**< URL of web based whois. */
-	const char *ns_loc; /**< Location of CORBA nameservice. */
-	const char *object; /**< Name of whois object. */
+	char *object; /**< Name of whois object. */
 	apr_interval_time_t	delay; /**< Used for meassuring of CORBA call latency. */
-	whois_corba_globs *corba_globs; /**< Variables needed for CORBA call. */
 }whoisd_server_conf;
 
 #if AP_SERVER_MINORVERSION_NUMBER == 0
@@ -106,14 +105,52 @@ static apr_status_t process_whois_request(request_rec *r)
 	apr_status_t	status;
 	apr_bucket_brigade *bb; /* brigade for response */
 	apr_bucket	*b; /* used for escaping of disclaimer */
+	service_Whois	service;
+	apr_hash_t	*references;
+	module	*corba_module;
 	server_rec	*s = r->server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
 
+	/*
+	 * get module structure for mod_corba, in order to retrieve service
+	 * stored by that module in connection config.
+	 */
+	corba_module = NULL;
+	for (i = 0; ap_loaded_modules[i] != NULL; i++)
+		if (!strcmp(ap_loaded_modules[i]->name, "mod_corba.c")) {
+			corba_module = ap_loaded_modules[i];
+			break;
+		}
+
+	if (corba_module == NULL) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
+				"mod_corba module was not loaded - unable to handle a whois "
+				"request");
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+	references = (apr_hash_t *)
+		ap_get_module_config(r->connection->conn_config, corba_module);
+	if (references == NULL) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
+				"mod_corba is not enabled for this server though it "
+				"should be! Cannot handle whois request.");
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
+	service = (service_Whois *) apr_hash_get(references, sc->object,
+			strlen(sc->object));
+	if (service == NULL) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, r->connection,
+				"Could not obtain object reference for alias '%s'. Check "
+				"mod_corba's configuration.", sc->object);
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
 	/* We will meassure the time the corba function call takes. */
 	time1 = apr_time_now();
 	/* call corba function, return code will be analyzed later */
-	rc = whois_corba_call(sc->corba_globs, r->uri, &wd, timebuf,
+	rc = whois_corba_call(service, r->uri, &wd, timebuf,
 			TIME_BUFFER_LENGTH);
 	time2 = apr_time_now();
 
@@ -504,17 +541,6 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 }
 
 /**
- * Cleanup routine, currently only wrapper around whois_corba_init_cleanup().
- *
- * @param data Corba globs.
- */
-static int whois_cleanup(void *data)
-{
-	whois_corba_init_cleanup((whois_corba_globs *) data);
-	return 0;
-}
-
-/**
  * Postconfig hook is a good occasion to check consistency of mod_whoisd
  * configuration and to initialize CORBA component.
  *
@@ -524,7 +550,7 @@ static int whois_cleanup(void *data)
  * @param s Server struct.
  * @return Status.
  */
-static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
+static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		apr_pool_t *ptemp, server_rec *s)
 {
 	whoisd_server_conf *sc;
@@ -551,23 +577,9 @@ static int whoisd_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 					 "is not set");
 				return HTTP_INTERNAL_SERVER_ERROR;
 			}
-			if (sc->ns_loc == NULL) {
-				sc->ns_loc = apr_pstrdup(p, "localhost");
-			}
 			if (sc->object == NULL) {
 				sc->object = apr_pstrdup(p, "Whois");
 			}
-			/* initialize corba */
-			sc->corba_globs = whois_corba_init(sc->ns_loc, sc->object);
-			if (sc->corba_globs == NULL) {
-				ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-					 "mod_whoisd: corba initialization failed");
-				return HTTP_INTERNAL_SERVER_ERROR;
-			}
-			/* register cleanup for corba globs */
-			apr_pool_cleanup_register(p, sc->corba_globs, whois_cleanup,
-					apr_pool_cleanup_null);
-					
 		}
 		/* get next virtual server */
 		s = s->next;
@@ -713,40 +725,6 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
 }
 
 /**
- * Routine sets nameservice location.
- *
- * @param cmd Command.
- * @param dummy Not used arg.
- * @param ns_loc The value.
- * @return NULL if OK, otherwise a string.
- */
-static const char *set_ns_loc(cmd_parms *cmd, void *dummy, const char *ns_loc)
-{
-	const char *err;
-    server_rec *s = cmd->server;
-    whoisd_server_conf *sc = (whoisd_server_conf *)
-			ap_get_module_config(s->module_config, &whoisd_module);
-
-	err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE|NOT_IN_LIMIT);
-    if (err) return err;
-
-	/*
-	 * catch double definition of filename
-	 * that's not serious fault so we will just print log message
-	 */
-	if (sc->ns_loc != NULL) {
-		ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-			"mod_whoisd: more than one definition of nameservice location. All \
-			but the first one will be ignored");
-		return NULL;
-	}
-
-	sc->ns_loc = apr_pstrdup(cmd->pool, ns_loc);
-
-    return NULL;
-}
-
-/**
  * Routine sets name under which is registered whois object by nameservice.
  *
  * @param cmd Command.
@@ -826,9 +804,6 @@ static const command_rec whoisd_cmds[] = {
 	AP_INIT_TAKE1("WhoisDelay", set_whois_delay, NULL, RSRC_CONF,
 			 "Number of miliseconds the responce to client will be deferred. "
 			 "Number must be in range 0 to 9999"),
-	AP_INIT_TAKE1("WhoisNameservice", set_ns_loc, NULL, RSRC_CONF,
-			 "Location of CORBA nameservice (host[:port]). Default is "
-			 "localhost."),
 	AP_INIT_TAKE1("WhoisObject", set_whois_object, NULL, RSRC_CONF,
 			 "Name under which is the whois object known to nameserver. "
 			 "Default is \"Whois\"."),
@@ -856,8 +831,10 @@ static void *create_whoisd_config(apr_pool_t *p, server_rec *s)
  */
 static void register_hooks(apr_pool_t *p)
 {
-	ap_hook_post_config(whoisd_postconfig_hook, NULL, NULL, APR_HOOK_MIDDLE);
-	ap_hook_process_connection(process_whois_connection, NULL, NULL,
+	static const char * const aszPre[]={ "mod_corba.c", NULL };
+
+	ap_hook_post_config(whois_postconfig_hook, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_process_connection(process_whois_connection, aszPre, NULL,
 			APR_HOOK_MIDDLE);
 
 	/* register whois filters */

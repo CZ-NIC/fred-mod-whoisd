@@ -78,8 +78,8 @@ ${IDLPREFIX}-stubs.o: ${IDLPREFIX}-stubs.c ${IDLPREFIX}.h
 $(IDLOUT): $(IDL)
 	$(ORBIT-IDL) --noskels $(IDL)
 
-whois_test.o: whois_test.c whois-client.h
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEFS) whois_test.c
+whois_test.o: whois_test.c whois-client.h $(IDLPREFIX).h
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEFS) $(ORB_CFLAGS) whois_test.c
 
 whois_test: whois_test.o $(OBJS)
 	$(CC) -o whois_test $(LDFLAGS) $(LIBS) $(ORB_LDFLAGS) $(OBJS) whois_test.o

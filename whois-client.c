@@ -35,111 +35,8 @@
 	(!strcmp((_ev)->_id, "IDL:ccReg/Whois/DomainError:1.0"))
 
 
-/**
- * Persistent structure initialized at startup, needed for corba function calls.
- */
-struct whois_corba_globs_t {
-	CORBA_ORB	corba;   /**< Global corba object. */
-	ccReg_Whois	service; /**< Service is ccReg object's stub. */
-};
-
-whois_corba_globs *
-whois_corba_init(const char *ns_host, const char *obj_name)
-{
-	CORBA_Environment  ev[1];
-	CORBA_ORB    global_orb = CORBA_OBJECT_NIL;	/* global orb */
-	CosNaming_NamingContext ns; /* used for nameservice */
-	whois_corba_globs *globs;	/* to store global_orb and service */
-	ccReg_Whois service = CORBA_OBJECT_NIL;	/* object's stub */
-	CosNaming_NameComponent *name_component; /* Whois' name */
-	CosNaming_Name *cos_name; /* Cos name used in service lookup */
-	char ns_string[150];
-	int argc = 0;
- 
-	assert(ns_host != NULL);
-	assert(obj_name != NULL);
-
-	/* build a name of Whois object */
-	name_component = (CosNaming_NameComponent *)
-		malloc(2 * sizeof(CosNaming_NameComponent));
-	name_component[0].id = CORBA_string_dup("ccReg");
-	name_component[0].kind = CORBA_string_dup("context");
-	name_component[1].id = CORBA_string_dup(obj_name);
-	name_component[1].kind = CORBA_string_dup("Object");
-	cos_name = (CosNaming_Name *) malloc (sizeof(CosNaming_Name));
-	cos_name->_maximum = cos_name->_length = 2;
-	cos_name->_buffer = name_component;
-	CORBA_sequence_set_release(cos_name, CORBA_TRUE);
-
-	ns_string[149] = 0;
-	snprintf(ns_string, 149, "corbaloc::%s/NameService", ns_host);
-	CORBA_exception_init(ev);
-	/* create orb object */
-	global_orb = CORBA_ORB_init(&argc, NULL, "orbit-local-orb", ev);
-	if (global_orb == CORBA_OBJECT_NIL || raised_exception(ev)) {
-		CORBA_exception_free(ev);
-		return NULL;
-	}
-	/* get nameservice */
-	ns = (CosNaming_NamingContext) CORBA_ORB_string_to_object(global_orb,
-			ns_string, ev);
-	if (ns == CORBA_OBJECT_NIL || raised_exception(ev)) {
-		CORBA_exception_free(ev);
-		/* tear down the ORB */
-		CORBA_ORB_destroy(global_orb, ev);
-		CORBA_exception_free(ev);
-		return NULL;
-	}
-	/* get Whois object */
-	service =(ccReg_Whois) CosNaming_NamingContext_resolve(ns, cos_name, ev);
-	if (service == CORBA_OBJECT_NIL || raised_exception(ev)) {
-		CORBA_exception_free(ev);
-		/* release nameservice */
-		CORBA_Object_release(ns, ev);
-		CORBA_exception_free(ev);
-		/* tear down the ORB */
-		CORBA_ORB_destroy(global_orb, ev);
-		CORBA_exception_free(ev);
-		return NULL;
-	}
-	/* release nameservice */
-	CORBA_Object_release(ns, ev);
-	CORBA_exception_free(ev);
-
-	/* wrap orb and service in one struct */
-	if ((globs = malloc(sizeof *globs)) == NULL) {
-		/* releasing managed object */
-		CORBA_Object_release(service, ev);
-		CORBA_exception_free(ev);
-		/* tear down the ORB */
-		CORBA_ORB_destroy(global_orb, ev);
-		CORBA_exception_free(ev);
-		return NULL;
-	}
-	globs->corba = global_orb;
-	globs->service = service;
-
-	return globs;
-}
-
-void
-whois_corba_init_cleanup(whois_corba_globs *globs)
-{
-	CORBA_Environment ev[1];
-	CORBA_exception_init(ev);
-
-	/* releasing managed object */
-	CORBA_Object_release(globs->service, ev);
-	CORBA_exception_free(ev); /* we don't care about exception */
-	/* tear down the ORB */
-	CORBA_ORB_destroy(globs->corba, ev);
-	CORBA_exception_free(ev); /* we don't care about exception */
-
-	free(globs);
-}
-
 int
-whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
+whois_corba_call(service_Whois service, const char *dname, whois_data_t **wd,
 		char *timebuf, unsigned timebuflen)
 {
 	CORBA_Environment ev[1];
@@ -149,7 +46,7 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 	int	retr; /* retry counter */
 	int	i;
  
-	assert(globs->service != NULL);
+	assert(service != NULL);
 	assert(dname != NULL);
 	assert(timebuf != NULL);
 	assert(timebuflen > 0);
@@ -161,7 +58,8 @@ whois_corba_call(whois_corba_globs *globs, const char *dname, whois_data_t **wd,
 		CORBA_exception_init(ev);
 
 		/* call domain method */
-		dm = ccReg_Whois_getDomain(globs->service, dname, &timestamp,ev);
+		dm = ccReg_Whois_getDomain((ccReg_Whois) service,
+				dname, &timestamp,ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop*/
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))

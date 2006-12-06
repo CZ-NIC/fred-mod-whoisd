@@ -29,13 +29,7 @@
  * @}
  */
 
-/**
- * Structure used to hold global ORB's and object's reference.
- *
- * Member variables are kept private and are understandable only by CORBA
- * component.
- */
-typedef struct whois_corba_globs_t whois_corba_globs;
+typedef void *service_Whois;
 
 /**
  * Status values for domain.
@@ -61,25 +55,6 @@ typedef struct {
 }whois_data_t;
 
 /**
- * Initialization of global ORB and object's reference getting.
- *
- * Must be called before any other function from CORBA component.
- *
- * @param ns_host  Host and optionally port where nameservice runs.
- * @param obj_name Name under which is registered whois object by nameservice.
- * @return Pointer to struct containing global ORB and object's reference.
- */
-whois_corba_globs *whois_corba_init(const char *ns_host, const char *obj_name);
-
-/**
- * This cleanup routine releases global ORB and object's reference initialized
- * int whois_corba_init().
- *
- * @param globs CORBA data to be released.
- */
-void whois_corba_init_cleanup(whois_corba_globs *globs);
-
-/**
  * The core function of whois module performs actual query for domain.
  *
  * @param globs Data needed for CORBA call and initialized in whois_corba_init().
@@ -90,7 +65,7 @@ void whois_corba_init_cleanup(whois_corba_globs *globs);
  * @return Status code.
  */
 int
-whois_corba_call(whois_corba_globs *globs,
+whois_corba_call(service_Whois service,
 		const char *dname,
 		whois_data_t **wd,
 		char *timebuf,
