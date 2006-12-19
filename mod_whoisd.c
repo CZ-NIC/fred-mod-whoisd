@@ -585,7 +585,7 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		s = s->next;
 	}
 
-	ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+	ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
 		 "mod_whoisd: Module successfully configured");
 	return (err_seen) ? HTTP_INTERNAL_SERVER_ERROR : OK;
 }

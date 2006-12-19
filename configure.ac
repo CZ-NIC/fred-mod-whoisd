@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([mod_whoisd], 1.0, [], [mod_whoisd])
+AC_INIT([mod_whoisd], 1.3, [], [mod_whoisd])
 AC_CONFIG_SRCDIR([mod_whoisd.c])
 
 # Checks for programs.
