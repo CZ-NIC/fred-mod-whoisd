@@ -55,10 +55,11 @@ all: build doc
 build: $(EXECFILES)
 
 install: mod_whoisd.so
-	$(INSTALL) --mode 0755 mod_whoisd.so $(INSTALLDIR)
+	$(INSTALL) -d $(DESTDIR)/$(INSTALLDIR)
+	$(INSTALL) --mode 0644 mod_whoisd.so $(DESTDIR)/$(INSTALLDIR)
 
 uninstall:
-	-rm -f $(INSTALLDIR)/mod_whoisd.so
+	-rm -f $(DESTDIR)/$(INSTALLDIR)/mod_whoisd.so
 
 mod_whoisd.so: mod_whoisd.o $(OBJS)
 	$(CC) -Wl,-rpath $(AP_INSTALLDIR) -Bshareable -shared -o mod_whoisd.so $(LDFLAGS) $(LIBS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(AP_LIBS) $(OBJS) mod_whoisd.o
