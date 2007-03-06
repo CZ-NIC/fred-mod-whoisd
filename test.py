@@ -74,7 +74,7 @@ if __name__ == "__main__":
 	print "Testing invalid domains:"
 	for domain in set_invalid:
 		total   += 1
-		tr = test_routine(domain, ["INVALID"])
+		tr = test_routine(domain, ["INVALID", "LONG"])
 		if tr > 0: success += 1
 		elif tr < 0: errors += 1
 	print "Testing domains in bad zone:"
