@@ -20,7 +20,10 @@ PKG_NAME    = @PACKAGE_NAME@
 PKG_TARNAME = @PACKAGE_TARNAME@
 PKG_VERSION = @PACKAGE_VERSION@
 
-DISTFILES   = configure.ac disc.txt Makefile.in mod_whoisd.c whois-client.c whois-client.h
+HEADERS     = unconfig.h whois-client.h
+CFILES      = mod_whoisd.c whois-client.c whois_test.c
+AUXFILES    = config.h.in configure configure.ac disc.txt doxy.conf install-sh Makefile.in test.py README ChangeLog
+
 EXECFILES   = mod_whoisd.so whois_test
 IDLOUT      = ${IDLPREFIX}.h ${IDLPREFIX}-common.c ${IDLPREFIX}-stubs.c
 OBJS        = whois-client.o ${IDLPREFIX}-common.o ${IDLPREFIX}-stubs.o
@@ -47,7 +50,7 @@ AP_LIBS	   := $(shell $(APR-CONFIG) --libs)
 
 INSTALLDIR := $(shell $(APXS) -q LIBEXECDIR)
 
-.PHONY: all build install uninstall clean distclean realclean doc dist
+.PHONY: all build install uninstall clean realclean doc dist
 .SUFFIXES:
 
 all: build doc
@@ -88,13 +91,6 @@ whois_test: whois_test.o $(OBJS)
 test: whois_test
 	python test.py curlew
 
-distclean:
-	-rm -f $(ALL_OBJS)
-	-rm -f $(IDLOUT)
-	-rm -rf acconfig.h autom4te.cache configure Makefile config.h config.log config.status
-	-rm -f doxygen.log
-	-rm -f $(TARDIR).tar
-
 clean:
 	-rm -f $(ALL_OBJS)
 	-rm -f $(IDLOUT)
@@ -103,14 +99,8 @@ clean:
 	-rm -fr doc/html
 	-rm -f $(TARDIR).tar
 
-realclean:
-	-rm -f $(ALL_OBJS)
-	-rm -f $(IDLOUT)
+realclean: clean
 	-rm -rf acconfig.h autom4te.cache configure Makefile config.h config.log config.status
-	-rm -f doxygen.log
-	-rm -f $(EXECFILES)
-	-rm -fr doc/html
-	-rm -f $(TARDIR).tar
 
 doc: doxy.conf
 	@ if test x$(DOXYGEN) = x; then \
@@ -122,9 +112,14 @@ doc: doxy.conf
 		 echo "output from doxygen is in doxygen.log file"; \
 	   fi
 
-dist: $(ALL_OBJS) $(DISTFILES) $(EXECFILES)
-	-@ echo "Creating distribution tar archive for package $(PKG_STRING)."
-	mkdir $(TARDIR)
-	cp -r $(EXECFILES) $(DISTFILES) $(IDL) $(IDLOUT) doc $(TARDIR)
-	tar cf $(TARDIR).tar $(TARDIR)
-	rm -rf $(TARDIR)
+dist: $(HEADERS) $(CFILES) $(AUXFILES) doc
+	@ echo "Creating distribution tar archive for package $(PKG_STRING)."
+	@ mkdir -p $(TARDIR)/doc
+	@ echo "Bundling source files and build files."
+	@ cp $(HEADERS) $(CFILES) $(AUXFILES) $(TARDIR)
+	@ echo "Bundling documentation."
+	@ cp doc/mainpage.h $(TARDIR)/doc
+	@ cp -r doc/html $(TARDIR)/doc/html
+	@ echo "Creating tar file."
+	tar cvf $(TARDIR).tar $(TARDIR)
+	@ rm -rf $(TARDIR)

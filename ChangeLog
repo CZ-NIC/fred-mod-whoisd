@@ -1,3 +1,9 @@
+version 1.3.1
+
+	* Change of CORBA nameservice context from old ccReg to new Fred.
+
+	* Subtle changes in test program test.py.
+
 version 1.3.0
 
 	* New reference manager mod_corba was added, mod_whoisd was adapted

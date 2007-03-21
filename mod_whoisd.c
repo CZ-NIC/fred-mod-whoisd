@@ -45,7 +45,7 @@
 #include "config.h"
 #endif
 
-/** This default desclaimer should never be used in production release :). */
+/** This default disclaimer should never be used in production release. */
 #define DEFAULT_DISCLAIMER	"Domain Information over Whois protocol\n"
 /**
  * Message displayed bellow disclaimer when query cannot be answered
