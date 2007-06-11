@@ -98,7 +98,7 @@ main(int argc, char *argv[])
 
 	quit = 0;
 	/* do the work */
-	for (; i < argc; i++) {
+	for (i = 1; i < argc; i++) {
 		int	ret;
 
 		service = get_service(orb, host, "Whois");

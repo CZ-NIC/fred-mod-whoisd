@@ -71,24 +71,44 @@
  *         module.
  *   .
  * 
+ * File httpd-whois.conf is example of mod_whoisd's configuration.
  *
- * Example configuration suited for production might look like this:
+ * @section make Building and installing the module
  *
- @verbatim
- #
- # mod_whoisd virtual host
- #
- Listen 43      # Whois port, assigned by IANA
- LoadModule whoisd_module modules/mod_whoisd.so
- <VirtualHost 192.168.2.1:43>
-   WhoisProtocol     On
-   WhoisDisclaimer   "/etc/apache2/disclaimer.txt"
-   WhoisWebURL       "http://whois.nic.cz/"
-   WhoisDelay        400
-   WhoisObject       "Whois"
- </VirtualHost>
- @endverbatim
+ * Module comes with configure script, which should hide differences
+ * among Fedora, Gentoo, Debian and Ubuntu linux distributions. Other
+ * distribution let alone UNIX-like operating systems where not tested.
+ * The following parameters in addition to standard ones are recognized
+ * by the configure script:
  *
- * Note that configuration of mod_corba module must be part of virtual host's
- * configuration.
+ *     - --with-idl             Location of IDL file.
+ *     .
+ * Following options doesn't have to be ussualy specified since tools'
+ * location is automatically found by configure in most cases:
+ *
+ *     - --with-apr-config      Location of apr-config tool.
+ *     - --with-apxs            Location of apxs tool.
+ *     - --with-orbit-idl       Location of ORBit IDL compiler.
+ *     - --with-pkg-config      Location of pkg-config tool.
+ *     - --with-doc             Location of doxygen if you want to generate documentation.
+ *     .
+ *
+ * The installation directories are not taken into account. The installation
+ * directories are given by apxs tool.
+ *
+ * The module is installed by the traditional way: ./configure && make && make
+ * install. The module is installed in directory where other apache modules
+ * reside.
+ *
+ * @section trouble Troubleshooting
+ *
+ * There is apache's log file where mod_whoisd puts log messages.
+ * If you can't localize error by log and source code inspection there is a
+ * test program "whois_test". This binary is easy to debug in gdb and in 80%
+ * of cases are the bugs from mod_whoisd reproducible by this simplified
+ * binary. If you decided to use gdb, don't forget to configure mod_whoisd
+ * with CFLAGS='-g -O0'.
+ *
+ * The test utility returns just a status for each domain listed on a command
+ * line.
  */

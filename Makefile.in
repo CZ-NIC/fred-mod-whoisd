@@ -5,20 +5,20 @@ DEFS        = @DEFS@
 LDFLAGS	    = @LDFLAGS@
 LIBS        = @LIBS@
 
-APR-CONFIG  = @APR_CONFIG@
-APU-CONFIG  = @APU_CONFIG@
-APXS        = @APXS@
 ORBIT-IDL   = @ORBIT_IDL@
-PKG-CONFIG  = @PKG_CONFIG@
 DOXYGEN     = @DOXYGEN@
 IDL         = @IDL@
 IDLPREFIX   = @IDLPREFIX@
 INSTALL     = @INSTALL@
-SHELL       = @SHELL@
 PKG_STRING  = @PACKAGE_STRING@
-PKG_NAME    = @PACKAGE_NAME@
 PKG_TARNAME = @PACKAGE_TARNAME@
 PKG_VERSION = @PACKAGE_VERSION@
+ORB_CFLAGS  = @ORB_CFLAGS@
+ORB_LDFLAGS = @ORB_LDFLAGS@
+AP_CPPFLAGS = @AP_CPPFLAGS@
+AP_CFLAGS   = @AP_CFLAGS@
+AP_LDFLAGS  = @AP_LDFLAGS@
+INSTALLDIR  = @INSTALLDIR@ 
 
 HEADERS     = unconfig.h whois-client.h
 CFILES      = mod_whoisd.c whois-client.c whois_test.c
@@ -29,26 +29,6 @@ IDLOUT      = ${IDLPREFIX}.h ${IDLPREFIX}-common.c ${IDLPREFIX}-stubs.c
 OBJS        = whois-client.o ${IDLPREFIX}-common.o ${IDLPREFIX}-stubs.o
 ALL_OBJS    = mod_whoisd.o $(OBJS) whois_test.o
 TARDIR      = $(PKG_TARNAME)-$(PKG_VERSION)
-
-ORB_LDFLAGS:= $(shell $(PKG-CONFIG) --libs ORBit-2.0)
-ORB_CFLAGS := $(shell $(PKG-CONFIG) --cflags ORBit-2.0)
-COS_LDFLAGS:= $(shell $(PKG-CONFIG) --libs ORBit-CosNaming-2.0)
-COS_CFLAGS := $(shell $(PKG-CONFIG) --cflags ORBit-CosNaming-2.0)
-ORB_LDFLAGS:= $(ORB_LDFLAGS) $(COS_LDFLAGS)
-ORB_CFLAGS := $(ORB_CFLAGS) $(COS_CFLAGS)
-
-AP_CPPFLAGS:= $(shell $(APR-CONFIG) --cppflags)
-AP_CFLAGS  := $(shell $(APR-CONFIG) --cflags)
-APXS_INCLUDE:= $(shell $(APXS) -q INCLUDEDIR)
-APR_INCLUDE:= $(shell $(APR-CONFIG) --includes)
-APU_INCLUDE:= $(shell $(APU-CONFIG) --includes)
-AP_INCLUDE := -I$(APXS_INCLUDE) $(APU_INCLUDE) $(APR_INCLUDE)
-AP_CONFDIR := $(shell $(APXS) -q SYSCONFDIR)
-
-AP_LDFLAGS := $(shell $(APR-CONFIG) --ldflags)
-AP_LIBS	   := $(shell $(APR-CONFIG) --libs)
-
-INSTALLDIR := $(shell $(APXS) -q LIBEXECDIR)
 
 .PHONY: all build install uninstall clean realclean doc dist
 .SUFFIXES:
@@ -65,10 +45,10 @@ uninstall:
 	-rm -f $(DESTDIR)/$(INSTALLDIR)/mod_whoisd.so
 
 mod_whoisd.so: mod_whoisd.o $(OBJS)
-	$(CC) -Wl,-rpath $(AP_INSTALLDIR) -Bshareable -shared -o mod_whoisd.so $(LDFLAGS) $(LIBS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(AP_LIBS) $(OBJS) mod_whoisd.o
+	$(CC) -Bshareable -shared -o mod_whoisd.so $(LDFLAGS) $(LIBS) $(AP_LDFLAGS) $(ORB_LDFLAGS) $(OBJS) mod_whoisd.o
 
 mod_whoisd.o: mod_whoisd.c whois-client.h
-	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(AP_CPPFLAGS) $(AP_CFLAGS) $(AP_INCLUDE) $(DEFS) -c mod_whoisd.c
+	$(CC) -fPIC $(CPPFLAGS) $(CFLAGS) $(AP_CPPFLAGS) $(AP_CFLAGS) $(DEFS) -c mod_whoisd.c
 
 whois-client.o: whois-client.c whois-client.h ${IDLPREFIX}.h
 	$(CC) -fPIC -include ${IDLPREFIX}.h $(CPPFLAGS) $(CFLAGS) $(ORB_CFLAGS) $(DEFS) -c whois-client.c

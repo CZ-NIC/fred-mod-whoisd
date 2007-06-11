@@ -1,4 +1,10 @@
-version 1.3.1
+2007-06-11 Jan Kryl (version 1.3.2)
+
+	* Enhancement of configure script.
+	
+	* Better documentation.
+
+2007-03-21 Jan Kryl (version 1.3.1)
 
 	* Change of CORBA nameservice context from old ccReg to new Fred.
 
@@ -18,3 +24,4 @@ version 1.2.0
 
 	* In IDL was added flag 'enum' which tells if it is enum domain or
 	not. A link to web site is displayed only if this flag is false.
+

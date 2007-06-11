@@ -11,34 +11,52 @@ AC_PROG_INSTALL
 AC_PROG_EGREP
 AC_PROG_AWK
 
-# Checks for libraries.
-AC_CHECK_LIB([ORBit-2], [CORBA_exception_init], [],
-			 [AC_MSG_ERROR([orbit2 not found])])
-
-# Checks for header files.
-dnl AC_HEADER_STDC
-dnl AC_CHECK_HEADERS([stdlib.h string.h sys/time.h unistd.h])
-
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
 dnl AC_HEADER_TIME
 
-# Checks for library functions.
-dnl AC_FUNC_MALLOC
-dnl AC_FUNC_REALLOC
-dnl AC_CHECK_FUNCS([bzero gettimeofday strdup])
+#
+# check pkg-config
+#
+AC_ARG_WITH([pkg-config], [AS_HELP_STRING([--with-pkg-config],
+			[location of pkg-config executable])],
+			[AC_SUBST([PKG_CONFIG], [$withval])])
+if test x"$PKG_CONFIG" = x; then
+	AC_PATH_PROG([PKG_CONFIG], [pkg-config])
+fi
+AC_CHECK_FILE([$PKG_CONFIG], [], [AC_MSG_ERROR(
+			   [pkg-config executable "$PKG_CONFIG" does not exist (use --with-pkg-config)])])
 
-#
-# custom checks
-#
+# Checks for libraries.
+# backup flags which get overwritten during tests
+BK_CFLAGS=$CPPFLAGS
+BK_LDFLAGS=$LDFLAGS
+
+# Check for ORBit2 library and header files
+ORB_CFLAGS=[`$PKG_CONFIG --cflags ORBit-2.0 ORBit-CosNaming-2.0`]
+ORB_LDFLAGS=[`$PKG_CONFIG --libs ORBit-2.0 ORBit-CosNaming-2.0`]
+CPPFLAGS=$ORB_CFLAGS
+LDFLAGS=$ORB_LDFLAGS
+AC_CHECK_LIB([ORBit-2], [CORBA_exception_init], [],
+	     [AC_MSG_ERROR([orbit2 not found])])
+AC_CHECK_HEADER([orbit/orbit.h], [],
+		[AC_MSG_ERROR([missing orbit2 header files])], [])
+AC_CHECK_HEADER([ORBitservices/CosNaming.h], [],
+		[AC_MSG_ERROR([missing orbit2 cosnaming header files])], [])
+AC_SUBST([ORB_CFLAGS])
+AC_SUBST([ORB_LDFLAGS])
+
+# restore original content of CFLAGS and LDFLAGS
+CPPFLAGS=$BK_CFLAGS
+LDFLAGS=$BK_LDFLAGS
 
 #
 # check apr-config
 #
 AC_ARG_WITH([apr-config], [AS_HELP_STRING([--with-apr-config],
 			[location of apr-config executable])],
-			[AC_SUBST([APR_CONFIG], [$with_apr-config])])
+			[APR_CONFIG=$withval])
 if test x"$APR_CONFIG" = x; then
 	AC_PATH_PROGS([APR_CONFIG], [apr-config apr-1-config])
 fi
@@ -46,35 +64,31 @@ AC_CHECK_FILE([$APR_CONFIG], [], [AC_MSG_ERROR(
 			   [apr-config executable "$APR_CONFIG" does not exist (use --with-apr-config)])])
 
 #
-# check apu-config
-#
-AC_ARG_WITH([apu-config], [AS_HELP_STRING([--with-apu-config],
-			[location of apu-config executable])],
-			[AC_SUBST([APU_CONFIG], [$with_apu-config])])
-if test x"$APU_CONFIG" = x; then
-	AC_PATH_PROGS([APU_CONFIG], [apu-config apu-1-config])
-fi
-AC_CHECK_FILE([$APU_CONFIG], [], [AC_MSG_ERROR(
-			   [apu-config executable "$APU_CONFIG" does not exist (use --with-apu-config)])])
-
-#
 # check apxs tool
 #
 AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
-			[location of apxs executable])],
-			[AC_SUBST([APXS], [$with_apxs])])
+	    [location of apxs executable])], [APXS=$withval])
 if test x"$APXS" = x; then
 	AC_PATH_PROGS([APXS], [apxs apxs2])
 fi
 AC_CHECK_FILE([$APXS], [], [AC_MSG_ERROR(
 			   [apxs executable "$APXS" was not found (use --with-apxs)])])
 
+INSTALLDIR=`$APXS -q LIBEXECDIR`
+AP_CPPFLAGS="-I`$APXS -q INCLUDEDIR` `$APR_CONFIG --includes --cppflags`"
+AP_CFLAGS="`$APXS -q CFLAGS` `$APR_CONFIG --cflags`"
+AP_LDFLAGS=`$APR_CONFIG --ldflags --libs`
+AC_SUBST([INSTALLDIR])
+AC_SUBST([AP_CPPFLAGS])
+AC_SUBST([AP_CFLAGS])
+AC_SUBST([AP_LDFLAGS])
+
 #
 # check orbit-idl-2
 #
 AC_ARG_WITH([orbit-idl], [AS_HELP_STRING([--with-orbit-idl],
 			[location of orbit-idl-2 executable])],
-			[AC_SUBST([ORBIT_IDL], [$with_orbit-idl])])
+			[AC_SUBST([ORBIT_IDL], [$withval])])
 if test x"$ORBIT_IDL" = x; then
 	AC_PATH_PROG([ORBIT_IDL], [orbit-idl-2])
 fi
@@ -82,23 +96,11 @@ AC_CHECK_FILE([$ORBIT_IDL], [], [AC_MSG_ERROR(
 			   [orbit-idl-2 executable "$ORBIT_IDL" does not exist (use --with-orbit-idl)])])
 
 #
-# check pkg-config
-#
-AC_ARG_WITH([pkg-config], [AS_HELP_STRING([--with-pkg-config],
-			[location of pkg-config executable])],
-			[AC_SUBST([PKG_CONFIG], [$with_pkg-config])])
-if test x"$PKG_CONFIG" = x; then
-	AC_PATH_PROG([PKG_CONFIG], [pkg-config])
-fi
-AC_CHECK_FILE([$PKG_CONFIG], [], [AC_MSG_ERROR(
-			   [pkg-config executable "$PKG_CONFIG" does not exist (use --with-pkg-config)])])
-
-#
 # check IDL file
 #
 AC_ARG_WITH([idl], [AS_HELP_STRING([--with-idl],
 			[location of idl file containing Whois interface [idl/Whois.idl]])],
-			[AC_SUBST([IDL], [$with_idl])],
+			[AC_SUBST([IDL], [$withval])],
 			[AC_SUBST([IDL], [idl/Whois.idl])])
 AC_CHECK_FILE([$IDL], [], [AC_MSG_ERROR(
 			   [idl file "$IDL" does not exist (use --with-idl)])])
@@ -111,7 +113,7 @@ AC_SUBST([IDLPREFIX], [$idlprefix])
 #
 AC_ARG_WITH([doc], [AS_HELP_STRING([--with-doc],
 			[location of doxygen executable used for html documentation])],
-			[AC_SUBST([DOXYGEN], [$with_doc])])
+			[AC_SUBST([DOXYGEN], [$withval])])
 if test x"$DOXYGEN" = x; then
 	AC_PATH_PROG([DOXYGEN], [doxygen])
 fi
