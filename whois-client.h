@@ -42,7 +42,7 @@ typedef enum { DOMAIN_ACTIVE, DOMAIN_EXPIRED }domain_status;
  */
 typedef struct {
 	char  *fqdn; /**< Name of a domain. */
-	int    enum_domain; /**< Name of a domain. */
+	int    enum_domain; /**< True if it is an ENUM domain. */
 	domain_status status; /**< Domain's status. */
 	char  *created;  /**< Date a domain was created. */
 	char  *expired;  /**< Expiration date of a domain. */
