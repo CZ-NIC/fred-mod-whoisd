@@ -2,7 +2,7 @@
  * @file whois-client.c
  *
  * Implementation of CORBA backend used for querying CORBA server for
- * information about domain.
+ * information about an object.
  */
 
 #include <assert.h>
@@ -23,155 +23,958 @@
 
 /** A shortcut for testing of CORBA exception appearence. */
 #define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
-/** Maximal # of retries when COMM_FAILURE exception during CORBA call occurs. */
+/** Max # of retries when COMM_FAILURE exception during CORBA call occurs. */
 #define MAX_RETRIES	3
 /** Sleep interval in microseconds between retries. */
 #define RETR_SLEEP	100000
 /** True if CORBA exception is COMM_FAILURE, which is used in retry loop. */
 #define IS_NOT_COMM_FAILURE_EXCEPTION(_ev)                             \
 	(strcmp((_ev)->_id, "IDL:omg.org/CORBA/COMM_FAILURE:1.0"))
-/** True if CORBA exception is DomainNotFound */
-#define IS_DOMAIN_ERROR(_ev)                             \
-	(!strcmp((_ev)->_id, "IDL:ccReg/Whois/DomainError:1.0"))
+/** True if CORBA exception is ObjectNotFound */
+#define IS_OBJECT_NOT_FOUND(_ev)                             \
+	(!strcmp((_ev)->_id, "IDL:ccReg/Admin/ObjectNotFound:1.0"))
 
+/** Call strdup on string only if it is not empty, otherwise return NULL. */
+#define NULL_STRDUP(src)	((*(src) == '\0') ? NULL : strdup(src))
 
-int
-whois_corba_call(service_Whois service, const char *dname, whois_data_t **wd,
-		char *timebuf, unsigned timebuflen)
+#if 0
+/**
+ * This routine was written as a simple test of generator part and can be used
+ * for testing.
+ *
+ * @param service    Whois CORBA object reference (not used).
+ * @param wr         Whois request (not used).
+ * @param objects    Array of resulting objects.
+ * @param timebuf    Timestamp.
+ * @return           Status.
+ */
+static int
+TEST_whois_corba_call(service_Whois service, const whois_request *wr,
+		general_object *objects, char *timebuf)
 {
-	CORBA_Environment ev[1];
-	CORBA_string	timestamp;
-	whois_data_t	*wd_temp;
-	ccReg_DomainWhois *dm; /* domain data */
-	int	retr; /* retry counter */
-	int	i;
- 
-	assert(service != NULL);
-	assert(dname != NULL);
 	assert(timebuf != NULL);
-	assert(timebuflen > 0);
 
-	*wd = NULL;
+	/* XXX Temporary hack */
+	strncpy(timebuf, "DUMMY:TIME", TIME_BUFFER_LENGTH);
+
+	/* testing domain */
+	objects[0].type = T_DOMAIN;
+	objects[0].obj.d.domain = strdup("test-domain.cz");
+	objects[0].obj.d.registrant = strdup("USER-HANDLE");
+	objects[0].obj.d.admin_c = (char **) malloc(4 * sizeof (char *));
+	objects[0].obj.d.admin_c[0] = strdup("ADMIN1-HANDLE");
+	objects[0].obj.d.admin_c[1] = strdup("ADMIN2-HANDLE");
+	objects[0].obj.d.admin_c[2] = strdup("POPOKATE");
+	objects[0].obj.d.admin_c[3] = NULL;
+	objects[0].obj.d.temp_c = (char **) malloc(2 * sizeof (char *));
+	objects[0].obj.d.temp_c[0] = strdup("OLD-BURDEN");
+	objects[0].obj.d.temp_c[1] = NULL;
+	objects[0].obj.d.nsset = strdup("NSSET-HANDLE");
+	objects[0].obj.d.registrar = strdup("REG-HANDLE");
+	objects[0].obj.d.status = (char **) malloc(3 * sizeof (char *));
+	objects[0].obj.d.status[0] = strdup("status1");
+	objects[0].obj.d.status[1] = strdup("another_status");
+	objects[0].obj.d.status[2] = NULL;
+	objects[0].obj.d.registered = strdup("22.04.2007 23:00:12");
+	objects[0].obj.d.changed = strdup("12.02.2008 03:10:43");
+	objects[0].obj.d.expire = strdup("02.06.2009");
+	objects[0].obj.d.validated_to = NULL;
+
+	/* testing nsset */
+	objects[1].type = T_NSSET;
+	objects[1].obj.n.nsset = strdup("NSSET-HANDLE");
+	objects[1].obj.n.nserver = (char **) malloc(3 * sizeof (char *));
+	objects[1].obj.n.nserver[0] = strdup("ns1.bazmecek.net");
+	objects[1].obj.n.nserver[1] = strdup("ns2.hosting.cz");
+	objects[1].obj.n.nserver[2] = NULL;
+	objects[1].obj.n.tech_c = (char **) malloc(4 * sizeof (char *));
+	objects[1].obj.n.tech_c[0] = strdup("TECH1-HANDLE");
+	objects[1].obj.n.tech_c[1] = strdup("TECH1-HANDLE");
+	objects[1].obj.n.tech_c[2] = strdup("PETL");
+	objects[1].obj.n.tech_c[3] = NULL;
+	objects[1].obj.n.registrar = strdup("REG-HANDLE");
+	objects[1].obj.n.created = strdup("22.04.2007 23:00:12");
+	objects[1].obj.n.changed = strdup("12.02.2008 03:10:43");
+
+	/* testing contact */
+	objects[2].type = T_CONTACT;
+	objects[2].obj.c.contact = strdup("CONTACT-HANDLE");
+	objects[2].obj.c.org = strdup("Company Comercial 1th s.r.o.");
+	objects[2].obj.c.name = strdup("Frank Lumpard");
+	objects[2].obj.c.address = (char **) malloc(4 * sizeof (char *));
+	objects[2].obj.c.address[0] = strdup("Ohio street n. 29");
+	objects[2].obj.c.address[1] = strdup("New York");
+	objects[2].obj.c.address[2] = strdup("400 11");
+	objects[2].obj.c.address[3] = NULL;
+	objects[2].obj.c.phone = strdup("+420778234800");
+	objects[2].obj.c.fax_no = NULL;
+	objects[2].obj.c.e_mail = strdup("frankl@noodle.com");
+	objects[2].obj.c.registrar = strdup("REG-DEUTSCHE-TELEKOM");
+	objects[2].obj.c.created = strdup("22.04.2007 23:00:12");
+	objects[2].obj.c.changed = strdup("12.02.2008 03:10:43");
+
+	/* testing registrar */
+	objects[3].type = T_REGISTRAR;
+	objects[3].obj.r.registrar = strdup("REG-HANDLE");
+	objects[3].obj.r.org = strdup("deadly domains ltd.");
+	objects[3].obj.r.url = strdup("http://www.undeadly.org/");
+	objects[3].obj.r.phone = strdup("+420222573000");
+	objects[3].obj.r.e_mail = strdup("registrations@undeadly.org");
+	objects[3].obj.r.address = (char **) malloc(4 * sizeof (char *));
+	objects[3].obj.r.address[0] = strdup("Bangladesha 29");
+	objects[3].obj.r.address[1] = strdup("Old York Town");
+	objects[3].obj.r.address[2] = strdup("530 01");
+	objects[3].obj.r.address[3] = NULL;
+
+	/* finish */
+	objects[4].type = T_NONE;
+
+	return CORBA_OK;
+}
+#endif
+
+/**
+ * Search registrar by handle.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param handle     Handle of registrar.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_registrar_by_handle(service_Whois service, const char *handle,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_Registrar	*c_registrar; /* registrar detail */
+	obj_registrar	*r;
+	int	 retr;  /* retry counter */
+	int	 line;
+	int	 ret;   /* return code used in some cases */
+
 	/* retry loop */
 	for (retr = 0; retr < MAX_RETRIES; retr++) {
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
 		CORBA_exception_init(ev);
 
-		/* call domain method */
-		dm = ccReg_Whois_getDomain((ccReg_Whois) service,
-				dname, &timestamp,ev);
+		/* call registrar method */
+		c_registrar = ccReg_Admin_getRegistrarByHandle(
+				(ccReg_Admin) service, handle, ev);
 
-		/* if COMM_FAILURE is not raised then quit retry loop*/
+		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
 			break;
 		usleep(RETR_SLEEP);
 	}
 
 	if (raised_exception(ev)) {
-		int ret;
-		if (IS_DOMAIN_ERROR(ev)) {
-			ccReg_Whois_DomainError	*de;
-
-			de = (ccReg_Whois_DomainError *) ev->_any._value;
-			/* get timestamp */
-			timebuf[timebuflen - 1] = '\0';
-			strncpy(timebuf, de->timestamp, timebuflen - 1);
-			switch (de->type) {
-				case ccReg_WE_DOMAIN_BAD_ZONE:
-					ret = CORBA_DOMAIN_BAD_ZONE;
-					break;
-				case ccReg_WE_DOMAIN_LONG:
-					ret = CORBA_DOMAIN_LONG;
-					break;
-				case ccReg_WE_INVALID:
-					ret = CORBA_DOMAIN_INVALID;
-					break;
-				case ccReg_WE_NOTFOUND:
-					ret = CORBA_DOMAIN_FREE;
-					break;
-				default:
-					ret = CORBA_UNKNOWN_ERROR;
-					break;
-			}
-		}
-		else
+		if (IS_OBJECT_NOT_FOUND(ev))
+			ret = CORBA_OK;
+		else {
 			ret = CORBA_SERVICE_FAILED;
+			strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+			errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		}
 		CORBA_exception_free(ev);
 		return ret;
 	}
 	CORBA_exception_free(ev);
 
-	/* get time of response generation */
-	timebuf[timebuflen - 1] = '\0';
-	strncpy(timebuf, timestamp, timebuflen - 1);
-	CORBA_free(timestamp);
+	/* copy registrar data */
+	objects[*index_free].type = T_REGISTRAR;
+	r = &objects[*index_free].obj.r;
+	r->registrar = NULL_STRDUP(c_registrar->handle);
+	r->org = NULL_STRDUP(c_registrar->organization);
+	r->url = NULL_STRDUP(c_registrar->url);
+	r->phone = NULL_STRDUP(c_registrar->telephone);
+	r->e_mail = NULL_STRDUP(c_registrar->email);
+	/* address is more complicated, it is composed from more items */
+	r->address = (char **) malloc(8 * sizeof (char *));
+	line = 0;
+#define COPY_ADDRESS_LINE(str) \
+	do{ if (*(str) != '\0') r->address[line++] = strdup(str); }while(0)
+	COPY_ADDRESS_LINE(c_registrar->street1);
+	COPY_ADDRESS_LINE(c_registrar->street2);
+	COPY_ADDRESS_LINE(c_registrar->street3);
+	COPY_ADDRESS_LINE(c_registrar->city);
+	COPY_ADDRESS_LINE(c_registrar->postalcode);
+	COPY_ADDRESS_LINE(c_registrar->stateorprovince);
+	COPY_ADDRESS_LINE(c_registrar->country);
+#undef COPY_ADDRESS_LINE
+	r->address[line] = NULL;
 
-	/* allocate all needed items */
-	if ((*wd = (whois_data_t *) calloc(1, sizeof **wd)) == NULL) {
-		CORBA_free(dm);
-		return CORBA_INTERNAL_ERROR;
+	CORBA_free(c_registrar);
+	(*index_free)++;
+	return CORBA_OK;
+}
+
+/**
+ * Search contact by handle.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param handle     Handle of contact.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_contact_by_handle(service_Whois service, const char *handle,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_ContactDetail	*c_contact; /* contact detail */
+	obj_contact	*c;
+	int	 retr;  /* retry counter */
+	int	 ret;   /* return code used in some cases */
+	int	 line;
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call contact method */
+		c_contact = ccReg_Admin_getContactByHandle((ccReg_Admin)service,
+				handle, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
 	}
-	wd_temp = *wd;
-	wd_temp->fqdn = strdup(dm->fqdn);
-	wd_temp->enum_domain = (dm->enum_domain) ? 1:0;
-	wd_temp->nameservers = malloc(sizeof(char *) * dm->ns._length);
-	if ((wd_temp)->nameservers == NULL) {
-		CORBA_free(dm);
-		free(wd_temp);
-		*wd = NULL;
-		return CORBA_INTERNAL_ERROR;
+
+	if (raised_exception(ev)) {
+		if (IS_OBJECT_NOT_FOUND(ev))
+			ret = CORBA_OK;
+		else {
+			ret = CORBA_SERVICE_FAILED;
+			strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+			errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		}
+		CORBA_exception_free(ev);
+		return ret;
 	}
-	wd_temp->techs = malloc(sizeof(char *) * dm->tech._length);
-	if (wd_temp->techs == NULL) {
-		CORBA_free(dm);
-		free(wd_temp->nameservers);
-		free(wd_temp);
-		*wd = NULL;
-		return CORBA_INTERNAL_ERROR;
-	}
-	/* copy nameservers */
-	for (i = 0; i < dm->ns._length; i++)
-		wd_temp->nameservers[i] = strdup(dm->ns._buffer[i]);
-	wd_temp->ns_length = dm->ns._length;
-	/* copy technical contacts */
-	for (i = 0; i < dm->tech._length; i++)
-		wd_temp->techs[i] = strdup(dm->tech._buffer[i]);
-	/* copy the rest of the items */
-	wd_temp->tech_length = dm->tech._length;
-	wd_temp->created = strdup(dm->created);
-	wd_temp->expired = strdup(dm->expired);
-	wd_temp->registrarName = strdup(dm->registrarName);
-	wd_temp->registrarUrl = strdup(dm->registrarUrl);
-	/* map status value */
-	if (dm->status == ccReg_WHOIS_ACTIVE)
-		wd_temp->status = DOMAIN_ACTIVE;
+	CORBA_exception_free(ev);
+
+	/* copy contact data according to disclose flags */
+	objects[*index_free].type = T_CONTACT;
+	c = &objects[*index_free].obj.c;
+	c->contact = NULL_STRDUP(c_contact->handle);
+	if (c_contact->discloseOrganization)
+		c->org = NULL_STRDUP(c_contact->organization);
 	else
-		wd_temp->status = DOMAIN_EXPIRED;
+		c->org = NULL;
+	if (c_contact->discloseName)
+		c->name = NULL_STRDUP(c_contact->name);
+	else
+		c->name = NULL;
+	if (c_contact->discloseTelephone)
+		c->phone = NULL_STRDUP(c_contact->telephone);
+	else
+		c->phone = NULL;
+	if (c_contact->discloseFax)
+		c->fax_no = NULL_STRDUP(c_contact->fax);
+	else
+		c->fax_no = NULL;
+	if (c_contact->discloseEmail)
+		c->e_mail = NULL_STRDUP(c_contact->email);
+	else
+		c->e_mail = NULL;
+	c->registrar = NULL_STRDUP(c_contact->registrarHandle);
+	c->created = NULL_STRDUP(c_contact->createDate);
+	c->changed = NULL_STRDUP(c_contact->updateDate);
+	/* address is more complicated, it is composed from more items */
+	c->address = (char **) malloc(8 * sizeof (char *));
+	line = 0;
+	if (c_contact->discloseAddress) {
+#define COPY_ADDRESS_LINE(str) \
+	do{ if (*(str) != '\0') c->address[line++] = strdup(str); }while(0)
+		COPY_ADDRESS_LINE(c_contact->street1);
+		COPY_ADDRESS_LINE(c_contact->street2);
+		COPY_ADDRESS_LINE(c_contact->street3);
+		COPY_ADDRESS_LINE(c_contact->city);
+		COPY_ADDRESS_LINE(c_contact->postalcode);
+		COPY_ADDRESS_LINE(c_contact->province);
+		COPY_ADDRESS_LINE(c_contact->country);
+#undef COPY_ADDRESS_LINE
+	}
+	c->address[line] = NULL;
 
+	CORBA_free(c_contact);
+	(*index_free)++;
 
-        CORBA_free(dm);
-        return CORBA_OK;
+	return CORBA_OK;
+}
+
+/**
+ * Copy corba representation of nsset object to our representation.
+ *
+ * @param obj         Field in object array which is destination of copy.
+ * @param c_nsset     Nsset detail returned from CORBA.
+ */
+static void
+copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
+{
+	obj_nsset	*n;
+	int	 i;
+
+	/* copy nsset data */
+	obj->type = T_NSSET;
+	n = &obj->obj.n;
+	n->nsset = NULL_STRDUP(c_nsset->handle);
+	n->registrar = NULL_STRDUP(c_nsset->registrarHandle);
+	n->created = NULL_STRDUP(c_nsset->createDate);
+	n->changed = NULL_STRDUP(c_nsset->updateDate);
+	n->nserver = (char **)
+		malloc((c_nsset->hosts._length + 1) * sizeof (char *));
+	for (i = 0; i < c_nsset->hosts._length; i++)
+		n->nserver[i] = strdup(c_nsset->hosts._buffer[i].fqdn);
+	n->nserver[i] = NULL;
+	n->tech_c = (char **)
+		malloc((c_nsset->admins._length + 1) * sizeof (char *));
+	for (i = 0; i < c_nsset->admins._length; i++)
+		n->tech_c[i] = strdup(c_nsset->admins._buffer[i]);
+	n->tech_c[i] = NULL;
+}
+
+/**
+ * The function does recursion on nsset.
+ *
+ * @param service     Whois corba object reference.
+ * @param n           Nsset object on which is done recursion.
+ * @param objects     Array of results.
+ * @param index_free  First free index in array of results.
+ * @param errmsg      Buffer for error message.
+ * @return            Status.
+ */
+static int
+recurse_nsset(service_Whois service, int rec, obj_nsset *n,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	int	 i, j, ret;
+
+	if (*index_free >= MAX_OBJECT_COUNT)
+		return CORBA_OK_LIMIT;
+	if (!rec)
+		return CORBA_OK;
+
+	/* recursion on tech_c */
+	for (i = 0; n->tech_c[i] != NULL; i++) {
+		/* detect duplicates */
+		for (j = 0; j < *index_free; j++)
+			if (objects[j].type == T_CONTACT &&
+					strcmp(objects[j].obj.c.contact, n->tech_c[i]) == 0)
+				break;
+		if (j < *index_free)
+			continue;
+
+		ret = get_contact_by_handle(service, n->tech_c[i],
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK) return ret;
+	}
+
+	return CORBA_OK;
+}
+
+/**
+ * Search nsset by handle and dependent objects if recursion is switched on.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param handle     Handle of nsset.
+ * @param rec        Recursive lookup is performed if true.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_nsset_by_handle(service_Whois service, const char *handle, int rec,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_NSSetDetail	*c_nsset; /* nsset detail */
+	int	 retr;  /* retry counter */
+	int	 ret;   /* return code used in some cases */
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call nsset method */
+		c_nsset = ccReg_Admin_getNSSetByHandle((ccReg_Admin) service,
+				handle, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		if (IS_OBJECT_NOT_FOUND(ev))
+			ret = CORBA_OK;
+		else {
+			ret = CORBA_SERVICE_FAILED;
+			strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+			errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		}
+		CORBA_exception_free(ev);
+		return ret;
+	}
+	CORBA_exception_free(ev);
+
+	copy_nsset(&objects[(*index_free)++], c_nsset);
+	CORBA_free(c_nsset);
+
+	return recurse_nsset(service, rec, &objects[*index_free - 1].obj.n,
+			objects, index_free, errmsg);
+}
+
+/**
+ * Search nsset by its attribute and dependent objects if recursion is
+ * switched on.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param key        Attribute of nsset.
+ * @param attr       Attribute type.
+ * @param rec        Recursive lookup is performed if true.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_nsset_by_attr(service_Whois service,
+		const char *key,
+		ccReg_NSSetInvKeyType attr,
+		int rec,
+		general_object *objects,
+		int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_NSSetDetails	*c_nssets; /* nsset details */
+	int	 retr;  /* retry counter */
+	int	 i;
+	int	 ret;
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call nsset method */
+		c_nssets = ccReg_Admin_getNSSetsByInverseKey(
+				(ccReg_Admin) service, key, attr,
+				MAX_OBJECT_COUNT - *index_free, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		CORBA_exception_free(ev);
+		return CORBA_SERVICE_FAILED;
+	}
+	CORBA_exception_free(ev);
+
+	ret = CORBA_OK;
+	/* copy all returned nssets */
+	for (i = 0; i < c_nssets->_length && *index_free < MAX_OBJECT_COUNT; i++)
+	{
+		copy_nsset(&objects[(*index_free)++], &c_nssets->_buffer[i]);
+		ret = recurse_nsset(service, rec,
+				&objects[(*index_free) - 1].obj.n,
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK)
+			break;
+	}
+
+	CORBA_free(c_nssets);
+
+	return ret;
+}
+
+/**
+ * Translate status ids by domain objects to appropriate strings.
+ *
+ * @param service     Whois corba object reference.
+ * @param objects     Array of objects.
+ * @param errmsg      Buffer for error message.
+ * @return            Status.
+ */
+static int
+translate_status(service_Whois service, general_object *objects, char *errmsg)
+{
+	int	 i, j, k;
+	int	 retr;
+	obj_domain	*d;
+	CORBA_Environment	 ev[1];
+	ccReg_ObjectStatusDescSeq	*c_stat;
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev);
+		CORBA_exception_init(ev);
+
+		c_stat = ccReg_Admin_getDomainStatusDescList(
+				(ccReg_Admin) service, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+	if (raised_exception(ev)) {
+		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		CORBA_exception_free(ev);
+		return CORBA_SERVICE_FAILED;
+	}
+	CORBA_exception_free(ev);
+
+	for (i = 0; i < MAX_OBJECT_COUNT && objects[i].type != T_NONE; i++) {
+
+		if (objects[i].type != T_DOMAIN)
+			continue;
+
+		d = &objects[i].obj.d;
+		for (j = 0; d->status_ids[j] != -1; j++) {
+			for (k = 0; k < c_stat->_length; k++)
+				if (d->status_ids[j] == c_stat->_buffer[k].id)
+					break;
+			if (k == c_stat->_length)
+				d->status[j] = strdup("");
+			else
+				d->status[j] = strdup(c_stat->_buffer[k].name);
+		}
+	}
+
+	CORBA_free(c_stat);
+	return CORBA_OK;
+}
+
+/**
+ * Copy corba representation of domain object to our representation.
+ *
+ * @param obj         Field in object array which is destination of copy.
+ * @param c_domain    Domain detail returned from CORBA.
+ */
+static void
+copy_domain(general_object *obj, ccReg_DomainDetail *c_domain)
+{
+	obj_domain	*d;
+	int	 i;
+
+	/* copy domain data */
+	obj->type = T_DOMAIN;
+	d = &obj->obj.d;
+	d->domain = NULL_STRDUP(c_domain->fqdn);
+	if (*c_domain->valExDate == '\0')
+		d->registrant = NULL_STRDUP(c_domain->registrantHandle);
+	else
+		d->registrant = NULL;
+	d->nsset = NULL_STRDUP(c_domain->nssetHandle);
+	d->registrar = NULL_STRDUP(c_domain->registrarHandle);
+	d->registered = NULL_STRDUP(c_domain->createDate);
+	d->changed = NULL_STRDUP(c_domain->updateDate);
+	d->expire = NULL_STRDUP(c_domain->expirationDate);
+	d->validated_to = NULL_STRDUP(c_domain->valExDate);
+	d->admin_c = (char **)
+		malloc((c_domain->admins._length + 1) * sizeof (char *));
+	for (i = 0; i < c_domain->admins._length; i++)
+		d->admin_c[i] = strdup(c_domain->admins._buffer[i]);
+	d->admin_c[i] = NULL;
+	d->temp_c = (char **)
+		malloc((c_domain->temps._length + 1) * sizeof (char *));
+	for (i = 0; i < c_domain->temps._length; i++)
+		d->temp_c[i] = strdup(c_domain->temps._buffer[i]);
+	d->temp_c[i] = NULL;
+	/* status values will be translated later */
+	d->status = (char **)
+		malloc((c_domain->statusList._length + 1) * sizeof (char *));
+	d->status[0] = NULL;
+	d->status_ids = (int *)
+		malloc((c_domain->statusList._length + 1) * sizeof (int));
+	for (i = 0; i < c_domain->statusList._length; i++)
+		d->status_ids[i] = c_domain->statusList._buffer[i];
+	d->status_ids[i] = -1;
+}
+
+/**
+ * The function does recursion on domain.
+ *
+ * @param service     Whois corba object reference.
+ * @param d           Domain object on which is done recursion.
+ * @param objects     Array of results.
+ * @param index_free  First free index in array of results.
+ * @param errmsg      Buffer for error message.
+ * @return            Status.
+ */
+static int
+recurse_domain(service_Whois service, int rec, obj_domain *d,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	int	 i, j, ret;
+
+	if (*index_free >= MAX_OBJECT_COUNT)
+		return CORBA_OK_LIMIT;
+	if (!rec)
+		return CORBA_OK;
+
+	/* recursion on registrant */
+	if (d->registrant != NULL) {
+		/* detect duplicates */
+		for (j = 0; j < *index_free; j++)
+			if (objects[j].type == T_CONTACT &&
+					strcmp(objects[j].obj.c.contact, d->registrant) == 0)
+				break;
+		if (j == *index_free) {
+			ret = get_contact_by_handle(service, d->registrant,
+					objects, index_free, errmsg);
+			if (ret != CORBA_OK) return ret;
+		}
+	}
+	
+	if (*index_free >= MAX_OBJECT_COUNT)
+		return CORBA_OK_LIMIT;
+
+	/* recursion on admin_c */
+	for (i = 0; d->admin_c[i] != NULL; i++) {
+		/* detect duplicates */
+		for (j = 0; j < *index_free; j++)
+			if (objects[j].type == T_CONTACT &&
+					strcmp(objects[j].obj.c.contact, d->admin_c[i]) == 0)
+				break;
+		if (j < *index_free)
+			continue;
+
+		ret = get_contact_by_handle(service, d->admin_c[i],
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK) return ret;
+	}
+
+	if (*index_free >= MAX_OBJECT_COUNT)
+		return CORBA_OK_LIMIT;
+
+	/* recursion on temp_c */
+	for (i = 0; d->temp_c[i] != NULL; i++) {
+		/* detect duplicates */
+		for (j = 0; j < *index_free; j++)
+			if (objects[j].type == T_CONTACT &&
+					strcmp(objects[j].obj.c.contact, d->temp_c[i]) == 0)
+				break;
+		if (j < *index_free)
+			continue;
+
+		ret = get_contact_by_handle(service, d->temp_c[i],
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK) return ret;
+	}
+
+	if (*index_free >= MAX_OBJECT_COUNT)
+		return CORBA_OK_LIMIT;
+
+	/* recursion on nsset */
+	if (d->nsset != NULL) {
+		/* detect duplicates */
+		for (j = 0; j < *index_free; j++)
+			if (objects[j].type == T_NSSET &&
+					strcmp(objects[j].obj.n.nsset, d->nsset) == 0)
+				break;
+		if (j == *index_free) {
+			ret = get_nsset_by_handle(service, d->nsset, rec,
+					objects, index_free, errmsg);
+			if (ret != CORBA_OK) return ret;
+		}
+	}
+
+	return CORBA_OK;
+}
+
+/**
+ * Search domain by fqdn and dependent objects if recursion is switched on.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param handle     Fqdn of domain.
+ * @param rec        Recursive lookup is performed if true.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_domain_by_handle(service_Whois service, const char *handle, int rec,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_DomainDetail	*c_domain; /* domain detail */
+	int	 retr;  /* retry counter */
+	int	 ret;   /* return code used in some cases */
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call domain method */
+		c_domain = ccReg_Admin_getDomainByFQDN((ccReg_Admin) service,
+				handle, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		if (IS_OBJECT_NOT_FOUND(ev))
+			ret = CORBA_OK;
+		else {
+			ret = CORBA_SERVICE_FAILED;
+			strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+			errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		}
+		CORBA_exception_free(ev);
+		return ret;
+	}
+	CORBA_exception_free(ev);
+
+	copy_domain(&objects[*index_free], c_domain);
+	(*index_free)++;
+
+	CORBA_free(c_domain);
+
+	return recurse_domain(service, rec, &objects[*index_free - 1].obj.d,
+			objects, index_free, errmsg);
+}
+
+/**
+ * Search domain by its attribute and dependent objects if recursion is
+ * switched on.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param key        Attribute of domain.
+ * @param attr       Attribute type.
+ * @param rec        Recursive lookup is performed if true.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_domain_by_attr(service_Whois service,
+		const char *key,
+		ccReg_DomainInvKeyType attr,
+		int rec,
+		general_object *objects,
+		int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_DomainDetails	*c_domains; /* domain details */
+	int	 retr;  /* retry counter */
+	int	 i;
+	int	 ret;
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call domain method */
+		c_domains = ccReg_Admin_getDomainsByInverseKey(
+				(ccReg_Admin) service, key, attr,
+				MAX_OBJECT_COUNT - *index_free, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		CORBA_exception_free(ev);
+		return CORBA_SERVICE_FAILED;
+	}
+	CORBA_exception_free(ev);
+
+	ret = CORBA_OK;
+	/* copy all returned domains */
+	for (i = 0; i < c_domains->_length; i++) {
+		copy_domain(&objects[(*index_free)++], &c_domains->_buffer[i]);
+		ret = recurse_domain(service, rec,
+				&objects[*index_free - 1].obj.d,
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK)
+			break;
+	}
+
+	CORBA_free(c_domains);
+
+	return ret;
+}
+
+int
+whois_corba_call(service_Whois service, const whois_request *wr,
+		general_object *objects, char *timebuf, char *errmsg)
+{
+	int	rec = (wr->norecursion ? 0 : 1);
+	int	ifree = 0;  /* Index of first free item in objects array */
+	int	ret;        /* return code from subroutines */
+ 
+	assert(timebuf != NULL);
+	/* XXX Temporary hack */
+	strncpy(timebuf, "DUMMY:TIME", TIME_BUFFER_LENGTH);
+
+	switch (wr->axe) {
+		case SA_REGISTRANT:
+			ret = get_domain_by_attr(service, wr->value,
+					ccReg_DIKT_REGISTRANT, rec, objects,
+					&ifree, errmsg);
+			break;
+		case SA_ADMIN_C:
+			ret = get_domain_by_attr(service, wr->value,
+					ccReg_DIKT_ADMIN, rec, objects,
+					&ifree, errmsg);
+			break;
+		case SA_TEMP_C:
+			ret = get_domain_by_attr(service, wr->value,
+					ccReg_DIKT_TEMP, rec, objects,
+					&ifree, errmsg);
+			break;
+		case SA_NSSET:
+			ret = get_domain_by_attr(service, wr->value,
+					ccReg_DIKT_NSSET, rec, objects,
+					&ifree, errmsg);
+			break;
+		case SA_NSERVER:
+			ret = get_nsset_by_attr(service, wr->value,
+					ccReg_NIKT_NS, rec, objects,
+					&ifree, errmsg);
+			break;
+		case SA_TECH_C:
+			ret = get_nsset_by_attr(service, wr->value,
+					ccReg_NIKT_TECH, rec, objects,
+					&ifree, errmsg);
+			break;
+		default:
+			/* search by type */
+			if (wr->type & T_DOMAIN) {
+				ret = get_domain_by_handle(service, wr->value,
+						rec, objects, &ifree, errmsg);
+				if (ret != CORBA_OK) goto search_end;
+			}
+			if (wr->type & T_NSSET) {
+				ret = get_nsset_by_handle(service, wr->value,
+						rec, objects, &ifree, errmsg);
+				if (ret != CORBA_OK) goto search_end;
+			}
+			if (wr->type & T_CONTACT) {
+				ret = get_contact_by_handle(service, wr->value,
+						objects, &ifree, errmsg);
+				if (ret != CORBA_OK) goto search_end;
+			}
+			if (wr->type & T_REGISTRAR) {
+				ret = get_registrar_by_handle(service,wr->value,
+						objects, &ifree, errmsg);
+				if (ret != CORBA_OK) goto search_end;
+			}
+			ret = CORBA_OK;
+			break;
+	}
+
+search_end:
+	if (ifree < MAX_OBJECT_COUNT)
+		objects[ifree].type = T_NONE;
+
+	if (ret != CORBA_OK && ret != CORBA_OK_LIMIT)
+		whois_release_data(objects);
+
+	translate_status(service, objects, errmsg);
+	return ret;
 }
 
 void
-whois_release_data(whois_data_t *wd)
+whois_release_data(general_object *objects)
 {
-	int i;
+	int	 i, j;
+	obj_domain	*d;
+	obj_nsset	*n;
+	obj_contact	*c;
+	obj_registrar	*r;
 
-	assert (wd != NULL);
-
-	free(wd->fqdn);
-	free(wd->registrarName);
-	free(wd->registrarUrl);
-	free(wd->created);
-	free(wd->expired);
-	for (i = 0; i < wd->ns_length; i++) {
-		free(wd->nameservers[i]);
+	for (i = 0; (objects[i].type != T_NONE) && (i < MAX_OBJECT_COUNT); i++)
+	{
+		switch (objects[i].type) {
+			case T_DOMAIN:
+				d = &objects[i].obj.d;
+				free(d->domain);
+				free(d->registrant);
+				for (j = 0; d->admin_c[j] != NULL; j++)
+					free(d->admin_c[j]);
+				free(d->admin_c);
+				free(d->nsset);
+				free(d->registrar);
+				for (j = 0; d->status[j] != NULL; j++)
+					free(d->status[j]);
+				free(d->status);
+				free(d->registered);
+				free(d->changed);
+				free(d->expire);
+				free(d->validated_to);
+				free(d->status_ids);
+				break;
+			case T_NSSET:
+				n = &objects[i].obj.n;
+				free(n->nsset);
+				for (j = 0; n->nserver[j] != NULL; j++)
+					free(n->nserver[j]);
+				free(n->nserver);
+				for (j = 0; n->tech_c[j] != NULL; j++)
+					free(n->tech_c[j]);
+				free(n->tech_c);
+				free(n->registrar);
+				free(n->created);
+				free(n->changed);
+				break;
+			case T_CONTACT:
+				c = &objects[i].obj.c;
+				free(c->contact);
+				free(c->org);
+				free(c->name);
+				for (j = 0; c->address[j] != NULL; j++)
+					free(c->address[j]);
+				free(c->address);
+				free(c->phone);
+				free(c->fax_no);
+				free(c->e_mail);
+				free(c->registrar);
+				free(c->created);
+				free(c->changed);
+				break;
+			case T_REGISTRAR:
+				r = &objects[i].obj.r;
+				free(r->registrar);
+				free(r->org);
+				free(r->url);
+				free(r->phone);
+				free(r->e_mail);
+				for (j = 0; r->address[j] != NULL; j++)
+					free(r->address[j]);
+				free(r->address);
+				break;
+			default:
+				assert(1 == 3);
+				break;
+		}
 	}
-	free(wd->nameservers);
-	for (i = 0; i < wd->tech_length; i++) {
-		free(wd->techs[i]);
-	}
-	free(wd->techs);
-	free(wd);
 }

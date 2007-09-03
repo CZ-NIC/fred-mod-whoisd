@@ -17,59 +17,138 @@
  *
  * @{
  */
-#define CORBA_OK	0 /**< No error occured. */
-#define CORBA_SERVICE_FAILED	1 /**< Could not obtain object's reference. */
-#define CORBA_INTERNAL_ERROR	2 /**< Internal error == malloc failed. */
-#define CORBA_DOMAIN_FREE	3 /**< No info for domain. */
-#define CORBA_DOMAIN_INVALID	4 /**< Invalid identificator of domain. */
-#define CORBA_DOMAIN_LONG	5 /**< Domain name is too long. */
-#define CORBA_DOMAIN_BAD_ZONE	6 /**< Domain is not in our zone. */
-#define CORBA_UNKNOWN_ERROR	7 /**< Unknown error returned over CORBA. */
+#define CORBA_OK		0 /**< No error occured. */
+/** No error, but limit on # of objects was reached. */
+#define CORBA_OK_LIMIT		1
+#define CORBA_SERVICE_FAILED	2 /**< Could not obtain object's reference. */
+#define CORBA_INTERNAL_ERROR	3 /**< Internal error == malloc failed. */
+#define CORBA_UNKNOWN_ERROR	4 /**< Unknown error returned over CORBA. */
 /**
  * @}
  */
 
+/**
+ * Length of buffer used to hold time of response generation (must be enough
+ * even for RFC822 date).
+ */
+#define TIME_BUFFER_LENGTH	60
+/** Length of buffer used to hold error message from corba backend. */
+#define MAX_ERROR_MSG_LEN	100
+/**
+ * Length of array for result objects and also a limit for maximal number
+ * of objects returned by whois query.
+ */
+#define MAX_OBJECT_COUNT 100
+
 typedef void *service_Whois;
 
-/**
- * Status values for domain.
- */
-typedef enum { DOMAIN_ACTIVE, DOMAIN_EXPIRED }domain_status;
+#define T_NONE		0   /* Nothing. */
+#define T_DOMAIN	1   /* Object type domain. */
+#define T_NSSET		2   /* Object type nsset. */
+#define T_CONTACT	4   /* Object type contact. */
+#define T_REGISTRAR	8   /* Object type registrar. */
 
 /**
- * Structure holding domain data. Name is not included since it is known
- * by caller.
+ * Axes used in reverse searches.
+ */
+typedef enum {
+	SA_NONE = 0,
+	SA_REGISTRANT,
+	SA_ADMIN_C,
+	SA_TEMP_C,
+	SA_NSSET,
+	SA_NSERVER,
+	SA_TECH_C
+}search_axis;
+
+/**
+ * Whois request structure.
  */
 typedef struct {
-	char  *fqdn; /**< Name of a domain. */
-	int    enum_domain; /**< True if it is an ENUM domain. */
-	domain_status status; /**< Domain's status. */
-	char  *created;  /**< Date a domain was created. */
-	char  *expired;  /**< Expiration date of a domain. */
-	char  *registrarName;/**< Name of company, which registered domain. */
-	char  *registrarUrl; /**< URL of company, which registered domain. */
-	int    ns_length; /**< Number of nameservers of a domain. */
-	char **nameservers; /**< FQDNs of nameservers of a domain. */
-	int    tech_length;   /**< Number of technical contacts for a domain. */
-	char **techs;   /**< Handles of techical contacts for a domain. */
-}whois_data_t;
+	search_axis	axe;
+	int	 norecursion;
+	int	 type;
+	const char	*value;
+}whois_request;
+
+/** Structure holding domain data. */
+typedef struct {
+	char	 *domain;      /**< Domain name. */
+	char	 *registrant;  /**< Registrant. */
+	char	**admin_c;     /**< Administrators. */
+	char	**temp_c;      /**< Temporary contacts. */
+	char	 *nsset;       /**< Nsset handle. */
+	char	 *registrar;   /**< Handle of registrar. */
+	char	**status;      /**< Status array for domain. */
+	char	 *registered;  /**< Date of domain registration. */
+	char	 *changed;     /**< Last update of domain. */
+	char	 *expire;      /**< Expiration date of domain. */
+	char	 *validated_to;/**< Not NULL if it is an ENUM domain. */
+	int	 *status_ids;  /**< Untranslated status numbers from corba. */
+}obj_domain;
+
+/** Structure holding nsset data. */
+typedef struct {
+	char	 *nsset;       /**< Handle of nsset. */
+	char	**nserver;     /**< Nameservers in nsset. */
+	char	**tech_c;      /**< Handles of techical contacts. */
+	char	 *registrar;   /**< Handle of registrar. */
+	char	 *created;     /**< Date of nsset creation. */
+	char	 *changed;     /**< Last update of nsset. */
+}obj_nsset;
+
+/** Structure holding contact data. */
+typedef struct {
+	char	 *contact;     /**< Handle of contact. */
+	char	 *org;         /**< Organization name. */
+	char     *name;        /**< Name of contact. */
+	char	**address;     /**< Address information. */
+	char	 *phone;       /**< Phone number. */
+	char	 *fax_no;      /**< Fax number. */
+	char	 *e_mail;      /**< Email. */
+	char	 *registrar;   /**< Handle of registrar. */
+	char	 *created;     /**< Date of contact creation. */
+	char	 *changed;     /**< Last update of contact. */
+}obj_contact;
+
+/** Structure holding registrar data. */
+typedef struct {
+	char	 *registrar;   /**< Handle of registrar. */
+	char	 *org;         /**< Organization. */
+	char     *url;         /**< URL of registrar's web pages. */
+	char	 *phone;       /**< Phone number. */
+	char	 *e_mail;      /**< Email. */
+	char	**address;     /**< Address information. */
+}obj_registrar;
+
+/** Structure able to hold any of the four types of whois objects. */
+typedef struct {
+	int	 type;         /**< Object type number. */
+	union {
+		obj_domain	d;
+		obj_nsset	n;
+		obj_contact	c;
+		obj_registrar	r;
+	}obj;
+}general_object;
 
 /**
- * The core function of whois module performs actual query for domain.
+ * The core function of whois module performs actual query.
  *
- * @param globs Data needed for CORBA call and initialized in whois_corba_init().
- * @param dname Domain name.
- * @param wd    Domain info struct holding output parameters from CORBA call.
- * @param timebuf Time of response generation (buffer must be preallocated).
- * @param timebuflen Length of buffer holding timestamp.
- * @return Status code.
+ * @param service     Corba reference of remote whois object.
+ * @param wr          Representation of whois request.
+ * @param objects     List of objects to be printed.
+ * @param timebuf     Time of response generation (buffer must be
+ *                    TIME_BUFFER_LENGTH bytes long).
+ * @param errmsg      Buffer for error message.
+ * @return            Status code.
  */
 int
 whois_corba_call(service_Whois service,
-		const char *dname,
-		whois_data_t **wd,
+		const whois_request *wr,
+		general_object *objects,
 		char *timebuf,
-		unsigned timebuflen);
+		char *errmsg);
 
 /**
  * Release content of whois_data_t structure.
@@ -80,6 +159,6 @@ whois_corba_call(service_Whois service,
  *
  * @param wd Whois data to be freed.
  */
-void whois_release_data(whois_data_t *wd);
+void whois_release_data(general_object *object_list);
 
 #endif /* WHOIS_CLIENT_H */

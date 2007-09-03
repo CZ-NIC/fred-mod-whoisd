@@ -15,6 +15,9 @@
  * central register to whois responses to client. The interface to central
  * register is defined by IDL file.
  *
+ * Specification of whois protocol can be found in README file in source
+ * repository.
+ *
  * @section config Module's configuration
  *
  * List of configuration directives recognized by mod_whoisd:
@@ -40,26 +43,6 @@
  *         '%' is prepended to every line automatically by module. Those
  *         characters must not be already present in disclaimer file!
  *         Otherwise they would be displayed twice.
- *   .
- * 
- *   name: WhoisWebURL
- *   - value:        URL
- *   - default:      none
- *   - context:      global config, virtual host
- *   - description:
- *         URL is part of a note in whois response, which redirects user
- *         to web whois, in order to get more detailed information about
- *         registrant of domain name. URL is not part of answers for ENUM
- *         domains because of political reasons. This argument is mandatory.
- *   .
- * 
- *   name: WhoisDelay
- *   - value:        number from interval 0..9999
- *   - default:      0
- *   - context:      global config, virtual host
- *   - description:
- *         Number of miliseconds a response to client is deffered
- *         in order to prevent data-mining.
  *   .
  * 
  *   name: WhoisObject
@@ -107,7 +90,7 @@
  * test program "whois_test". This binary is easy to debug in gdb and in 80%
  * of cases are the bugs from mod_whoisd reproducible by this simplified
  * binary. If you decided to use gdb, don't forget to configure mod_whoisd
- * with CFLAGS='-g -O0'.
+ * with CFLAGS='-g -O0 -Wall'.
  *
  * The test utility returns just a status for each domain listed on a command
  * line.

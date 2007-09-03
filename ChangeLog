@@ -1,3 +1,18 @@
+2007-08-31 Jan Kryl (version 2.0.0)
+
+	* Major code rewrite to fit new specification (see README) for whois.
+
+	* Whois gives information for objects domains, nssets, contacts and
+	registrars in classic forward and reverse manner.
+
+	* IDL interface was completely changed from Whois.idl to Admin.idl.
+
+	* Server side options were implemented.
+
+	* Disclaimer changed.
+
+	* Whois test program is no more maintained and was deleted.
+
 2007-06-11 Jan Kryl (version 1.3.2)
 
 	* Enhancement of configure script.

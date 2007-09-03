@@ -21,13 +21,13 @@ AP_LDFLAGS  = @AP_LDFLAGS@
 INSTALLDIR  = @INSTALLDIR@ 
 
 HEADERS     = unconfig.h whois-client.h
-CFILES      = mod_whoisd.c whois-client.c whois_test.c
-AUXFILES    = config.h.in configure configure.ac disc.txt doxy.conf install-sh Makefile.in test.py README ChangeLog
+CFILES      = mod_whoisd.c whois-client.c
+AUXFILES    = config.h.in configure configure.ac disc.txt doxy.conf install-sh Makefile.in README ChangeLog
 
-EXECFILES   = mod_whoisd.so whois_test
+EXECFILES   = mod_whoisd.so
 IDLOUT      = ${IDLPREFIX}.h ${IDLPREFIX}-common.c ${IDLPREFIX}-stubs.c
 OBJS        = whois-client.o ${IDLPREFIX}-common.o ${IDLPREFIX}-stubs.o
-ALL_OBJS    = mod_whoisd.o $(OBJS) whois_test.o
+ALL_OBJS    = mod_whoisd.o $(OBJS)
 TARDIR      = $(PKG_TARNAME)-$(PKG_VERSION)
 
 .PHONY: all build install uninstall clean realclean doc dist
@@ -61,15 +61,6 @@ ${IDLPREFIX}-stubs.o: ${IDLPREFIX}-stubs.c ${IDLPREFIX}.h
 
 $(IDLOUT): $(IDL)
 	$(ORBIT-IDL) --noskels $(IDL)
-
-whois_test.o: whois_test.c whois-client.h $(IDLPREFIX).h
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(DEFS) $(ORB_CFLAGS) whois_test.c
-
-whois_test: whois_test.o $(OBJS)
-	$(CC) -o whois_test $(LDFLAGS) $(LIBS) $(ORB_LDFLAGS) $(OBJS) whois_test.o
-
-test: whois_test
-	python test.py curlew
 
 clean:
 	-rm -f $(ALL_OBJS)
