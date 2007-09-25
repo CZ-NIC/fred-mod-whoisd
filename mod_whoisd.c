@@ -272,6 +272,9 @@ static void print_domain_object(apr_bucket_brigade *bb, obj_domain *d)
 	}
 	SAFE_PRINTF("nsset:        %s\n", d->nsset);
 	SAFE_PRINTF("registrar:    %s\n", d->registrar);
+	if (d->status[0] == NULL) {
+	SAFE_PRINTF("status:       %s\n", "paid and in zone");
+	}
 	for (i = 0; d->status[i] != NULL; i++) {
 	SAFE_PRINTF("status:       %s\n", d->status[i]);
 	}
