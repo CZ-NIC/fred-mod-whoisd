@@ -525,7 +525,7 @@ translate_status(service_Whois service, general_object *objects, char *errmsg)
 		CORBA_exception_init(ev);
 
 		c_stat = ccReg_Admin_getDomainStatusDescList(
-				(ccReg_Admin) service, ev);
+				(ccReg_Admin) service, "EN", ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -555,6 +555,7 @@ translate_status(service_Whois service, general_object *objects, char *errmsg)
 			else
 				d->status[j] = strdup(c_stat->_buffer[k].name);
 		}
+		d->status[j] = NULL;
 	}
 
 	CORBA_free(c_stat);
