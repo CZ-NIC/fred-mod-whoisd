@@ -659,8 +659,8 @@ static void usage_error(conn_rec *c, const char *disclaimer)
 	apr_brigade_puts(bb, NULL, NULL,
 "%ERROR:107: usage error\n"
 "% \n"
-"% Unknown option, invalid combination of options or invalid value for option\n"
-"% was specified.\n\n\n");
+"% Unknown option, invalid combination of options, invalid value for option\n"
+"% or invalid count of parameters was specified.\n\n\n");
 
 	/* ok, finish it - flush what we have produced so far */
 	APR_BRIGADE_INSERT_TAIL(bb, apr_bucket_eos_create(c->bucket_alloc));
@@ -821,6 +821,13 @@ static int process_whois_connection(conn_rec *c)
 		return HTTP_BAD_REQUEST;
 	}
 	argc -= os->ind;
+	/* check too many keywords case */
+	if (argc > 2) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Whois usage error: Too many search keys.");
+		usage_error(c, sc->disclaimer);
+		return HTTP_BAD_REQUEST;
+	}
 	/* check for query options */
 	if (argc == 0) {
 		apr_bucket_brigade *bb;

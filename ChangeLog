@@ -1,3 +1,9 @@
+2007-09-27 Jan Kryl (version 2.0.1)
+
+	* mod_whoisd crashed apache when there were more than 2 search
+	keywords, which is invalid usage. This condition now triggers response
+	with usage information.
+
 2007-09-26 Jan Kryl (version 2.0.0)
 
 	* Major code rewrite to fit new specification (see README) for whois.
