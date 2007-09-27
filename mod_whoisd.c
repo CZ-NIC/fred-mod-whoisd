@@ -976,7 +976,6 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		apr_pool_t *ptemp, server_rec *s)
 {
 	whoisd_server_conf *sc;
-	int	err_seen = 0;
 
 	/*
 	 * Iterate through available servers and if whoisd is enabled
@@ -1003,7 +1002,7 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 	ap_log_error(APLOG_MARK, APLOG_INFO, 0, s,
 		 "mod_whoisd: Module successfully configured");
 
-	return (err_seen) ? HTTP_INTERNAL_SERVER_ERROR : OK;
+	return OK;
 }
 
 /**
