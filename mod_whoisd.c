@@ -174,7 +174,6 @@ registrar:    [mandatory]  [single]\n\
 org:          [mandatory]  [single]\n\
 url:          [mandatory]  [single]\n\
 phone:        [optional]   [single]\n\
-e-mail:       [mandatory]  [single]\n\
 address:      [mandatory]  [multiple]\n\
 ";
 
@@ -362,7 +361,6 @@ static void print_registrar_object(apr_bucket_brigade *bb, obj_registrar *r)
 	SAFE_PRINTF("org:          %s\n", r->org);
 	SAFE_PRINTF("url:          %s\n", r->url);
 	SAFE_PRINTF("phone:        %s\n", r->phone);
-	SAFE_PRINTF("e-mail:       %s\n", r->e_mail);
 	for (i = 0; r->address[i] != NULL; i++) {
 	SAFE_PRINTF("address:      %s\n", r->address[i]);
 	}
@@ -987,9 +985,11 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 
 		if (sc->whoisd_enabled) {
 			if (sc->disclaimer_filename == NULL) {
-				ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
-					 "mod_whoisd: whoisd is enabled and "
-					 "disclaimer filename is not set.");
+				ap_log_error(APLOG_MARK, APLOG_WARNING, 0, s,
+					 "mod_whoisd: whoisd disclaimer not "
+					 "set, using default.");
+				sc->disclaimer = apr_pstrdup(p,
+						DEFAULT_DISCLAIMER);
 				return HTTP_INTERNAL_SERVER_ERROR;
 			}
 			if (sc->object == NULL) {

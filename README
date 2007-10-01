@@ -114,7 +114,6 @@ registrar:    [mandatory]  [single]    [primary key]
 org:          [mandatory]  [single]    [ ]
 url:          [mandatory]  [single]    [ ]
 phone:        [optional]   [single]    [ ]
-e-mail:       [mandatory]  [single]    [ ]
 address:      [mandatory]  [multiple]  [ ]
 
 

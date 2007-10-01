@@ -119,7 +119,6 @@ TEST_whois_corba_call(service_Whois service, const whois_request *wr,
 	objects[3].obj.r.org = strdup("deadly domains ltd.");
 	objects[3].obj.r.url = strdup("http://www.undeadly.org/");
 	objects[3].obj.r.phone = strdup("+420222573000");
-	objects[3].obj.r.e_mail = strdup("registrations@undeadly.org");
 	objects[3].obj.r.address = (char **) malloc(4 * sizeof (char *));
 	objects[3].obj.r.address[0] = strdup("Bangladesha 29");
 	objects[3].obj.r.address[1] = strdup("Old York Town");
@@ -189,7 +188,6 @@ get_registrar_by_handle(service_Whois service, const char *handle,
 	r->org = NULL_STRDUP(c_registrar->organization);
 	r->url = NULL_STRDUP(c_registrar->url);
 	r->phone = NULL_STRDUP(c_registrar->telephone);
-	r->e_mail = NULL_STRDUP(c_registrar->email);
 	/* address is more complicated, it is composed from more items */
 	r->address = (char **) malloc(8 * sizeof (char *));
 	line = 0;

@@ -117,7 +117,6 @@ typedef struct {
 	char	 *org;         /**< Organization. */
 	char     *url;         /**< URL of registrar's web pages. */
 	char	 *phone;       /**< Phone number. */
-	char	 *e_mail;      /**< Email. */
 	char	**address;     /**< Address information. */
 }obj_registrar;
 
