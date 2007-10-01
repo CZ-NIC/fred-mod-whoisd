@@ -966,7 +966,6 @@ whois_release_data(general_object *objects)
 				free(r->org);
 				free(r->url);
 				free(r->phone);
-				free(r->e_mail);
 				for (j = 0; r->address[j] != NULL; j++)
 					free(r->address[j]);
 				free(r->address);
