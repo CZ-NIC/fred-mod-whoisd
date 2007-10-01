@@ -990,7 +990,6 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 					 "set, using default.");
 				sc->disclaimer = apr_pstrdup(p,
 						DEFAULT_DISCLAIMER);
-				return HTTP_INTERNAL_SERVER_ERROR;
 			}
 			if (sc->object == NULL) {
 				sc->object = apr_pstrdup(p, "Whois");
