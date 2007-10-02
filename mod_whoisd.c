@@ -249,6 +249,63 @@ static void print_intro(apr_bucket_brigade *bb, conn_rec *c,
 }
 
 /**
+ * Routine trigerred upon error.
+ *
+ * @param c            Connection.
+ * @param disclaimer   Disclaimer.
+ * @param nerr         Number of error.
+ */
+static void send_error(conn_rec *c, const char *disclaimer, int nerr)
+{
+	apr_bucket_brigade	*bb;
+	apr_status_t	 status;
+
+	bb = apr_brigade_create(c->pool, c->bucket_alloc);
+	print_intro(bb, c, disclaimer, NULL);
+
+	switch (nerr) {
+	case 101:
+		apr_brigade_puts(bb, NULL, NULL,
+"%ERROR:101: no entries found\n"
+"% \n"
+"% No entries found.");
+		break;
+	case 107:
+		apr_brigade_puts(bb, NULL, NULL, usagestr);
+		apr_brigade_puts(bb, NULL, NULL, "\n");
+		apr_brigade_puts(bb, NULL, NULL,
+"%ERROR:107: usage error\n"
+"% \n"
+"% Unknown option, invalid combination of options, invalid value for option\n"
+"% or invalid count of parameters was specified.");
+		break;
+	case 108:
+		apr_brigade_puts(bb, NULL, NULL,
+"%ERROR:108: invalid request\n"
+"% \n"
+"% Invalid character in request, request not properly terminated or too long.");
+		break;
+	case 501:
+		apr_brigade_puts(bb, NULL, NULL,
+"%ERROR:501: internal server error\n"
+"% \n"
+"% Query didn't succeed becauseof server-side error. Please try again later.");
+		break;
+	default:
+		break;
+	}
+	apr_brigade_puts(bb, NULL, NULL, "\n\n\n");
+
+	/* ok, finish it - flush what we have produced so far */
+	APR_BRIGADE_INSERT_TAIL(bb, apr_bucket_eos_create(c->bucket_alloc));
+
+	status = ap_fflush(c->output_filters, bb);
+	if (status != APR_SUCCESS)
+		  ap_log_cerror(APLOG_MARK, APLOG_ERR, status, c,
+				  "Error when sending response");
+}
+
+/**
  * Function prints domain information to bucket brigade.
  *
  * @param bb    Bucket brigade.
@@ -410,7 +467,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"mod_corba module was not loaded - unable to "
 				"handle a whois request");
-		return HTTP_INTERNAL_SERVER_ERROR;
+		return APR_EGENERAL;
 	}
 
 	references = (apr_hash_t *)
@@ -419,7 +476,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"mod_corba is not enabled for this server though it "
 			"should be! Cannot handle whois request.");
-		return HTTP_INTERNAL_SERVER_ERROR;
+		return APR_EGENERAL;
 	}
 
 	service = (service_Whois *) apr_hash_get(references, sc->object,
@@ -428,7 +485,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"Could not obtain object reference for alias '%s'. "
 			"Check mod_corba's configuration.", sc->object);
-		return HTTP_INTERNAL_SERVER_ERROR;
+		return APR_EGENERAL;
 	}
 
 	objects = (general_object *)
@@ -443,9 +500,6 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 			"Request for \"%s\" processed in %u ms",
 			wr->value, (unsigned int) (time2 - time1) / 1000);
 
-	/* this brigade is used for response */
-	bb = apr_brigade_create(c->pool, c->bucket_alloc);
-
 	/*
 	 * XXX Until we will decide if the timestamp should be generated
 	 * in CORBA server, it is generated here (and anything returned from
@@ -453,71 +507,65 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	 */
 	apr_ctime(timebuf, time1);
 
+	if (rc == CORBA_SERVICE_FAILED) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"CORBA service failed: %s", errmsg);
+		send_error(c, sc->disclaimer, 501);
+		return APR_SUCCESS;
+	}
+	else if (rc == CORBA_INTERNAL_ERROR) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Internal error in CORBA backend: %s", errmsg);
+		send_error(c, sc->disclaimer, 501);
+		return APR_SUCCESS;
+	}
+	else if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Unknown error in CORBA backend (%d): %s",
+			rc, errmsg);
+		send_error(c, sc->disclaimer, 501);
+		return APR_SUCCESS;
+	}
+
+	/* check if at least one object was found */
+	if (objects[0].type == T_NONE) {
+		ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,"No entries found");
+		send_error(c, sc->disclaimer, 101);
+		return APR_SUCCESS;
+	}
+
+	/* this brigade is used for response */
+	bb = apr_brigade_create(c->pool, c->bucket_alloc);
 	print_intro(bb, c, sc->disclaimer, timebuf);
 
-	if (rc == CORBA_OK || rc == CORBA_OK_LIMIT) {
-		/* check if at least one object was found */
-		if (objects[0].type == T_NONE) {
-			ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
-					"No entries found");
-			apr_brigade_puts(bb, NULL, NULL,
-"%ERROR:101: no entries found\n"
-"% \n"
-"% No entries found.\n\n");
-		}
-		else {
-			if (rc == CORBA_OK_LIMIT) {
-				apr_brigade_puts(bb, NULL, NULL,
+	if (rc == CORBA_OK_LIMIT) {
+		apr_brigade_puts(bb, NULL, NULL,
 "% The list of objects is not complete! It was truncated, because it was\n"
 "% too long.\n\n");
-			}
+	}
 
-			for (i = 0; (i < MAX_OBJECT_COUNT) &&
-					(objects[i].type != T_NONE); i++)
-			{
-				switch (objects[i].type) {
-					case T_DOMAIN:
-						print_domain_object(bb,
-							&objects[i].obj.d);
-						break;
-					case T_NSSET:
-						print_nsset_object(bb,
-							&objects[i].obj.n);
-						break;
-					case T_CONTACT:
-						print_contact_object(bb,
-							&objects[i].obj.c);
-						break;
-					case T_REGISTRAR:
-						print_registrar_object(bb,
-							&objects[i].obj.r);
-						break;
-					default:
-						break;
-				}
-			}
-			ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
-					"%d object(s) returned for query", i);
-			whois_release_data(objects);
+	for (i = 0; (i < MAX_OBJECT_COUNT) && (objects[i].type != T_NONE); i++)
+	{
+		switch (objects[i].type) {
+			case T_DOMAIN:
+				print_domain_object(bb, &objects[i].obj.d);
+				break;
+			case T_NSSET:
+				print_nsset_object(bb, &objects[i].obj.n);
+				break;
+			case T_CONTACT:
+				print_contact_object(bb, &objects[i].obj.c);
+				break;
+			case T_REGISTRAR:
+				print_registrar_object(bb, &objects[i].obj.r);
+				break;
+			default:
+				break;
 		}
 	}
-	else {
-		if (rc == CORBA_SERVICE_FAILED)
-			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"CORBA service failed: %s", errmsg);
-		if (rc == CORBA_INTERNAL_ERROR)
-			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"Internal error in CORBA backend: %s", errmsg);
-		else
-			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-				"Unknown error in CORBA backend (%d): %s",
-				rc, errmsg);
-		apr_brigade_puts(bb, NULL, NULL,
-"%ERROR:501: internal server error\n"
-"% \n"
-"% Query didn't succeed becauseof server-side error. Please try again later.\n"
-"\n");
-	}
+	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
+			"%d object(s) returned for query", i);
+	whois_release_data(objects);
 
 	apr_brigade_puts(bb, NULL, NULL, "\n");
 
@@ -543,6 +591,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 static char *read_request(conn_rec *c, int *http_status)
 {
 	char	*buf;   /* buffer for user request */
+	int	 i;
 	apr_size_t	 len;   /* length of request */
 	apr_bucket_brigade *bb;
 	apr_status_t	status;
@@ -596,15 +645,31 @@ static char *read_request(conn_rec *c, int *http_status)
 	 * returns whatever text is available, so we have to explicitly check
 	 * for it.
 	 */
-	if (buf[len - 1] != APR_ASCII_LF || buf[len - 2] != APR_ASCII_CR)
-	{
+	if (buf[len - 1] != APR_ASCII_LF || buf[len - 2] != APR_ASCII_CR) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Request is not terminated by <CR><LF>");
 		*http_status = HTTP_BAD_REQUEST;
 		return NULL;
 	}
 	/* strip <CR><LF> characters and NULL terminate request */
-	buf[len - 2] = '\0';
+	len -= 2;
+	buf[len] = '\0';
+
+	/*
+	 * Check each character of request that it is from subset of ASCII
+	 */
+	for (i = 0; i < len; i++) {
+		/* 32 = space, 126 = ~ */
+		if (buf[i] < 32 || buf[i] > 126)
+			break;
+	}
+	if (i < len) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+				"Invalid character in request (code = %u)",
+				buf[i]);
+		*http_status = HTTP_BAD_REQUEST;
+		return NULL;
+	}
 
 	return buf;
 }
@@ -637,36 +702,6 @@ static int getobjtype(int *bittype, const char *strtype)
 	}
 	/* unknown object type */
 	return 1;
-}
-
-/**
- * Routine trigerred upon invalid use of whois.
- *
- * @param c            Connection.
- * @param disclaimer   Disclaimer.
- */
-static void usage_error(conn_rec *c, const char *disclaimer)
-{
-	apr_bucket_brigade	*bb;
-	apr_status_t	 status;
-
-	bb = apr_brigade_create(c->pool, c->bucket_alloc);
-	print_intro(bb, c, disclaimer, NULL);
-	apr_brigade_puts(bb, NULL, NULL, usagestr);
-	apr_brigade_puts(bb, NULL, NULL, "\n");
-	apr_brigade_puts(bb, NULL, NULL,
-"%ERROR:107: usage error\n"
-"% \n"
-"% Unknown option, invalid combination of options, invalid value for option\n"
-"% or invalid count of parameters was specified.\n\n\n");
-
-	/* ok, finish it - flush what we have produced so far */
-	APR_BRIGADE_INSERT_TAIL(bb, apr_bucket_eos_create(c->bucket_alloc));
-
-	status = ap_fflush(c->output_filters, bb);
-	if (status != APR_SUCCESS)
-		  ap_log_cerror(APLOG_MARK, APLOG_ERR, status, c,
-				  "Error when sending response");
 }
 
 /**
@@ -713,8 +748,13 @@ static int process_whois_connection(conn_rec *c)
 
 	/* read request */
 	inputline = read_request(c, &http_status);
-	if (inputline == NULL)
+	if (inputline == NULL) {
+		if (http_status == HTTP_BAD_REQUEST)
+			send_error(c, sc->disclaimer, 108);
+		else
+			send_error(c, sc->disclaimer, 501);
 		return http_status;
+	}
 
 	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
 			"Whois input line: %s", inputline);
@@ -730,7 +770,7 @@ static int process_whois_connection(conn_rec *c)
 	if (argc == MAXARGS) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Maximal allowed number of args exceeded.");
-		usage_error(c, sc->disclaimer);
+		send_error(c, sc->disclaimer, 107);
 		return HTTP_BAD_REQUEST;
 	}
 	argv[0] = NULL; /* command name - never used */
@@ -815,7 +855,7 @@ static int process_whois_connection(conn_rec *c)
 	if (parse_error || status != APR_EOF) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Error when parsing whois options.");
-		usage_error(c, sc->disclaimer);
+		send_error(c, sc->disclaimer, 107);
 		return HTTP_BAD_REQUEST;
 	}
 	argc -= os->ind;
@@ -823,7 +863,7 @@ static int process_whois_connection(conn_rec *c)
 	if (argc > 2) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"Whois usage error: Too many search keys.");
-		usage_error(c, sc->disclaimer);
+		send_error(c, sc->disclaimer, 107);
 		return HTTP_BAD_REQUEST;
 	}
 	/* check for query options */
@@ -834,7 +874,7 @@ static int process_whois_connection(conn_rec *c)
 			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Whois usage error: "
 				"Missing query option or search key.");
-			usage_error(c, sc->disclaimer);
+			send_error(c, sc->disclaimer, 107);
 			return HTTP_BAD_REQUEST;
 		}
 		/* generate response */
@@ -873,7 +913,7 @@ static int process_whois_connection(conn_rec *c)
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"Whois usage error: "
 			"Query option combined with search key.");
-		usage_error(c, sc->disclaimer);
+		send_error(c, sc->disclaimer, 107);
 		return HTTP_BAD_REQUEST;
 	}
 
@@ -887,7 +927,7 @@ static int process_whois_connection(conn_rec *c)
 		if (getobjtype(&wr->type, argv[os->ind])) {
 			ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Whois usage error: Unknown object type.");
-			usage_error(c, sc->disclaimer);
+			send_error(c, sc->disclaimer, 107);
 			return HTTP_BAD_REQUEST;
 		}
 		wr->value = argv[os->ind + 1];

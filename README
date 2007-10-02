@@ -209,6 +209,10 @@ We tried to stay compatible with RIPE DB error codes where possible.
 % Unknown option, invalid combination of options or invalid value for option
 % was specified.
 
+%ERROR:108: invalid request
+%
+% Invalid character in request, request not properly terminated or too long.
+
 %ERROR:201: access denied
 %
 % Access from the host has been permanently denied because of excessive

@@ -1,3 +1,12 @@
+2007-10-02 Jan Kryl (version 2.0.3)
+
+	* Characters in request must be in interval from 32 to 126 (printable
+	ASCII).
+
+	* Code handling exceptional cases was redesigned.
+
+	* New whois error 108 "invalid request" introduced.
+
 2007-10-01 Jan Kryl (version 2.0.2)
 
 	* Email of object registrar is not displayed in whois output.
