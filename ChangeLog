@@ -1,3 +1,10 @@
+2007-10-04 Jan Kryl (version 2.0.4)
+
+	* URL pointing to detailed description of whois implementation added
+	to usage message.
+
+	* Basic set of unittests is ready.
+
 2007-10-02 Jan Kryl (version 2.0.3)
 
 	* Characters in request must be in interval from 32 to 126 (printable

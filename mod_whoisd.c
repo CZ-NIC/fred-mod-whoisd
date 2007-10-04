@@ -115,6 +115,9 @@ static const char *usagestr = \
 % \n\
 % The -q parameter can be used only once and not in combination with any\n\
 % other option. The -i parameter can be used only once.\n\
+% \n\
+% More information about this implementation of whois server can be found at\n\
+% http://www.lammer.cz/\n\
 ";
 
 static const char *indexlist = \
