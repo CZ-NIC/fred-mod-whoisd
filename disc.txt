@@ -13,3 +13,5 @@ Full text available at:
 http://www.nic.cz/whois/disclaimer
 
 See also a search service at http://www.nic.cz/whois/
+
+Whois output uses UTF-8 encoding of unicode.
