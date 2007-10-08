@@ -117,7 +117,7 @@ static const char *usagestr = \
 % other option. The -i parameter can be used only once.\n\
 % \n\
 % More information about this implementation of whois server can be found at\n\
-% http://www.lammer.cz/\n\
+% http://www.nic.cz/whois/manual\n\
 ";
 
 static const char *indexlist = \
