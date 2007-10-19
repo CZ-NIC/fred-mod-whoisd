@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA EGREP AWK PKG_CONFIG CPP ORB_CFLAGS ORB_LDFLAGS APR_CONFIG APXS INSTALLDIR AP_CPPFLAGS AP_CFLAGS AP_LDFLAGS ORBIT_IDL IDL IDLPREFIX DOXYGEN SVNREV SVN LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA EGREP AWK PKG_CONFIG CPP ORB_CFLAGS ORB_LDFLAGS APR_CONFIG APXS INSTALLDIR AP_CPPFLAGS AP_CFLAGS AP_LDFLAGS ORBIT_IDL IDLDIR IDL IDLPREFIX DOXYGEN SVNREV SVN LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -846,8 +846,9 @@ Optional Packages:
   --with-apr-config       location of apr-config executable
   --with-apxs             location of apxs executable
   --with-orbit-idl        location of orbit-idl-2 executable
+  --with-idldir           Directory with idl [$CWD/idl]
   --with-idl              location of idl file containing Whois interface
-                          [idl/Admin.idl]
+                          [$IDLDIR/Whois.idl]
   --with-doc              location of doxygen executable used for html
                           documentation
 
@@ -3759,16 +3760,29 @@ fi
 
 
 #
+# check IDL dir
+#
+
+# Check whether --with-idldir or --without-idldir was given.
+if test "${with_idldir+set}" = set; then
+  withval="$with_idldir"
+  IDLDIR=$withval
+
+else
+  IDLDIR=`pwd`/idl
+
+fi;
+#
 # check IDL file
 #
 
 # Check whether --with-idl or --without-idl was given.
 if test "${with_idl+set}" = set; then
   withval="$with_idl"
-  IDL=$withval
+  IDL=$IDLDIR/$withval
 
 else
-  IDL=idl/Admin.idl
+  IDL=$IDLDIR/Whois.idl
 
 fi;
 as_ac_File=`echo "ac_cv_file_$IDL" | $as_tr_sh`
@@ -4602,6 +4616,7 @@ s,@AP_CPPFLAGS@,$AP_CPPFLAGS,;t t
 s,@AP_CFLAGS@,$AP_CFLAGS,;t t
 s,@AP_LDFLAGS@,$AP_LDFLAGS,;t t
 s,@ORBIT_IDL@,$ORBIT_IDL,;t t
+s,@IDLDIR@,$IDLDIR,;t t
 s,@IDL@,$IDL,;t t
 s,@IDLPREFIX@,$IDLPREFIX,;t t
 s,@DOXYGEN@,$DOXYGEN,;t t

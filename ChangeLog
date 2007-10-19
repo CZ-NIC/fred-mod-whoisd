@@ -1,3 +1,7 @@
+2007-10-19 Jan Kryl (version 2.0.5)
+
+	* New configure option --with-idldir.
+
 2007-10-10 Jan Kryl (version 2.0.4)
 
 	* URL pointing to detailed description of whois implementation added
