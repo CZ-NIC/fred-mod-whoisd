@@ -48,9 +48,9 @@
  * @param timebuf    Timestamp.
  * @return           Status.
  */
-static int
-TEST_whois_corba_call(service_Whois service, const whois_request *wr,
-		general_object *objects, char *timebuf)
+int
+whois_corba_call(service_Whois service, const whois_request *wr,
+		general_object *objects, char *timebuf, char *errmsg)
 {
 	assert(timebuf != NULL);
 
