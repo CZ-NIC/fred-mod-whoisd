@@ -763,6 +763,7 @@ static int process_whois_connection(conn_rec *c)
 			"Whois input line: %s", inputline);
 
 	/* break input line in tokens */
+	argv[0] = ""; /* command name - never used */
 	for (argc = 1, p = strtok_r(inputline, " \t", &lasts); p;
 			p = strtok_r(NULL, " \t", &lasts), argc++)
 	{
@@ -770,18 +771,17 @@ static int process_whois_connection(conn_rec *c)
 			break;
 		argv[argc] = p;
 	}
-	if (argc == MAXARGS) {
+	if (argc >= MAXARGS) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"Maximal allowed number of args exceeded.");
 		send_error(c, sc->disclaimer, 107);
 		return HTTP_BAD_REQUEST;
 	}
-	argv[0] = NULL; /* command name - never used */
-	argv[argc] = NULL;
 
 	/* parse options */
 	wr = (whois_request *) apr_pcalloc(c->pool, sizeof(*wr));
 	apr_getopt_init(&os, c->pool, argc, (const char * const *) argv);
+	os->errfn = NULL; /* suppress error output from getopt */
 	parse_error = q_version = q_indexes = q_templates = 0;
 	while (!parse_error && (status = apr_getopt(os, "rT:i:q:", &optch, &optarg)) == APR_SUCCESS)
 	{
