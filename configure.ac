@@ -1,123 +1,77 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
+# vim: set ts=4 sw=4:
 
 AC_PREREQ(2.59)
 AC_INIT([mod_whoisd], 2.0, [], [mod_whoisd])
 AC_CONFIG_SRCDIR([mod_whoisd.c])
+
+AH_TOP([#include "unconfig.h" /* why this? See comment in unconfig.h */])
+
+# init automake
+AM_INIT_AUTOMAKE
 
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_EGREP
 AC_PROG_AWK
+AC_PROG_INSTALL
+AM_PROG_LIBTOOL
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
-dnl AC_HEADER_TIME
 
-#
-# check pkg-config
-#
-AC_ARG_WITH([pkg-config], [AS_HELP_STRING([--with-pkg-config],
-			[location of pkg-config executable])],
-			[AC_SUBST([PKG_CONFIG], [$withval])])
-if test x"$PKG_CONFIG" = x; then
-	AC_PATH_PROG([PKG_CONFIG], [pkg-config])
-fi
-AC_CHECK_FILE([$PKG_CONFIG], [], [AC_MSG_ERROR(
-			   [pkg-config executable "$PKG_CONFIG" does not exist (use --with-pkg-config)])])
+# Check for orbit2
+AM_PATH_ORBIT2([2.0.0],[],[AC_MSG_ERROR([missing orbit2 header files.])])
+AX_PATH_ORBIT2_COSNAME()
 
-# Checks for libraries.
-# backup flags which get overwritten during tests
-BK_CFLAGS=$CPPFLAGS
-BK_LDFLAGS=$LDFLAGS
-
-# Check for ORBit2 library and header files
-ORB_CFLAGS=[`$PKG_CONFIG --cflags ORBit-2.0 ORBit-CosNaming-2.0`]
-ORB_LDFLAGS=[`$PKG_CONFIG --libs ORBit-2.0 ORBit-CosNaming-2.0`]
-CPPFLAGS=$ORB_CFLAGS
-LDFLAGS=$ORB_LDFLAGS
-AC_CHECK_LIB([ORBit-2], [CORBA_exception_init], [],
-	     [AC_MSG_ERROR([orbit2 not found])])
-AC_CHECK_HEADER([orbit/orbit.h], [],
-		[AC_MSG_ERROR([missing orbit2 header files])], [])
-AC_CHECK_HEADER([ORBitservices/CosNaming.h], [],
-		[AC_MSG_ERROR([missing orbit2 cosnaming header files])], [])
-AC_SUBST([ORB_CFLAGS])
-AC_SUBST([ORB_LDFLAGS])
-
-# restore original content of CFLAGS and LDFLAGS
-CPPFLAGS=$BK_CFLAGS
-LDFLAGS=$BK_LDFLAGS
-
-#
-# check apr-config
-#
-AC_ARG_WITH([apr-config], [AS_HELP_STRING([--with-apr-config],
-			[location of apr-config executable])],
-			[APR_CONFIG=$withval])
-if test x"$APR_CONFIG" = x; then
-	AC_PATH_PROGS([APR_CONFIG], [apr-config apr-1-config])
-fi
-AC_CHECK_FILE([$APR_CONFIG], [], [AC_MSG_ERROR(
-			   [apr-config executable "$APR_CONFIG" does not exist (use --with-apr-config)])])
-
-#
 # check apxs tool
-#
-AC_ARG_WITH([apxs], [AS_HELP_STRING([--with-apxs],
-	    [location of apxs executable])], [APXS=$withval])
-if test x"$APXS" = x; then
-	AC_PATH_PROGS([APXS], [apxs apxs2])
+AX_WITH_APXS()
+
+# check apr-config
+AC_ARG_WITH([apr-config], [AC_HELP_STRING([[--with-apr-config]],
+                          [location of apr-config executable])],
+                          [apr_config="$with_val"],
+                          [AC_PATH_PROGS([apr_config], 
+                          [apr-config apr-0-config apr-1-config], [no],
+                          [$PATH:/usr/sbin/:/usr/local/apache2/bin])])
+if test "$APR_CONFIG" = "no"; then
+    AC_MSG_ERROR([apr-config executable "$APR_CONFIG" does not exist (use --with-apr-config)])
 fi
-AC_CHECK_FILE([$APXS], [], [AC_MSG_ERROR(
-			   [apxs executable "$APXS" was not found (use --with-apxs)])])
-
-INSTALLDIR=`$APXS -q LIBEXECDIR`
-AP_CPPFLAGS="-I`$APXS -q INCLUDEDIR` `$APR_CONFIG --includes --cppflags`"
-AP_CFLAGS="`$APXS -q CFLAGS` `$APR_CONFIG --cflags`"
-AP_LDFLAGS=`$APR_CONFIG --ldflags --libs`
-AC_SUBST([INSTALLDIR])
-AC_SUBST([AP_CPPFLAGS])
-AC_SUBST([AP_CFLAGS])
-AC_SUBST([AP_LDFLAGS])
-
-#
-# check orbit-idl-2
-#
-AC_ARG_WITH([orbit-idl], [AS_HELP_STRING([--with-orbit-idl],
-			[location of orbit-idl-2 executable])],
-			[AC_SUBST([ORBIT_IDL], [$withval])])
-if test x"$ORBIT_IDL" = x; then
-	AC_PATH_PROG([ORBIT_IDL], [orbit-idl-2])
+$apr_config --cppflags &> /dev/null
+if test "$?" != "0"; then
+    AC_MSG_ERROR([$apr_config is not valid apr-config executable])
 fi
-AC_CHECK_FILE([$ORBIT_IDL], [], [AC_MSG_ERROR(
-			   [orbit-idl-2 executable "$ORBIT_IDL" does not exist (use --with-orbit-idl)])])
 
-#
+# set apache flags
+APACHE_CFLAGS="-I`${APXS} -q INCLUDEDIR` -I`${apr_config} --includedir`"
+APACHE_CPPFLAGS="`${apr_config} --cppflags`"
+AC_SUBST(APACHE_CFLAGS)
+AC_SUBST(APACHE_CPPFLAGS)
+
 # check IDL dir
-#
 AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
-			[Directory with idl [$CWD/idl]])],
-			[AC_SUBST([IDLDIR], [$withval])],
-			[AC_SUBST([IDLDIR], [`pwd`/idl])])
-#
+                        [Directory with idl [$CWD/idl]])],
+                        [AC_SUBST([IDLDIR], [$withval])],
+                        [AC_SUBST([IDLDIR], [`pwd`/idl])])
+
 # check IDL file
-#
 AC_ARG_WITH([idl], [AS_HELP_STRING([--with-idl],
-			[location of idl file containing Whois interface [$IDLDIR/Whois.idl]])],
-			[AC_SUBST([IDL], [$IDLDIR/$withval])],
-			[AC_SUBST([IDL], [$IDLDIR/Whois.idl])])
+                        [location of idl file containing Whois interface [IDLDIR/Whois.idl]])],
+                        [AC_SUBST([IDL], [$withval])],
+                        [AC_SUBST([IDL], [$IDLDIR/Whois.idl])])
 AC_CHECK_FILE([$IDL], [], [AC_MSG_ERROR(
-			   [idl file "$IDL" does not exist (use --with-idl)])])
+                           [idl file "$IDL" does not exist (use --with-idl)])])
+
+
+
 # determine prefix of files generated by idl compiler
 idlprefix=`basename $IDL .idl`
 AC_SUBST([IDLPREFIX], [$idlprefix])
 
-#
 # check doc (implying doxygen)
-#
 AC_ARG_WITH([doc], [AS_HELP_STRING([--with-doc],
 			[location of doxygen executable used for html documentation])],
 			[AC_SUBST([DOXYGEN], [$withval])])
@@ -127,8 +81,8 @@ fi
 AC_CHECK_FILE([$DOXYGEN], [], [AC_MSG_NOTICE(
 			   [doxygen executable "$DOXYGEN" not found, you will not be able to generate html documentation])])
 
+
 # check svn revision (if available)
-#
 AC_SUBST([SVNREV], [unknown])
 AC_MSG_NOTICE([trying to get svn revision])
 AC_PATH_PROG([SVN], [svn], [false])
@@ -141,7 +95,7 @@ else
 	AC_MSG_CHECKING([SVN revision])
 	AC_MSG_RESULT([$SVNREV])
 fi
-AC_DEFINE_UNQUOTED([SVN_REV], [["]$SVNREV["]])
+AC_DEFINE_UNQUOTED([SVN_REV], [["]$SVNREV["]], [SVN revision])
 
 # finalization
 AC_CONFIG_HEADERS([config.h])

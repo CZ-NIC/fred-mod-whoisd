@@ -33,6 +33,7 @@
 WHOIS=whois
 HOST=localhost
 ROUNDS=100
+ROUNDS_INIT=$ROUNDS
 
 # Testing data
 DOMAIN=TEST.CZ
@@ -64,12 +65,15 @@ function rw() {
 if [ $# -gt 0 ]
 then
 	ROUNDS=$1
+    ROUNDS_INIT=$ROUNDS
 fi
 
 MEM_PRE=`ps axo comm,vsz | grep apache | awk 'BEGIN { max = 0; } { if ( $2 > max ) max = $2; } END { print max; }'`
 
 while [ $ROUNDS -gt 0 ]
 do
+    tmp=`expr $ROUNDS % 10`;
+    if [ $tmp -eq 0 ]; then echo -n -e "Rounds left: $ROUNDS (total: $ROUNDS_INIT)\r"; fi;
 	# Test set 1
 	rw " $DOMAIN"
 	rw " $NSSET"
@@ -95,8 +99,9 @@ do
 
 	ROUNDS=`expr $ROUNDS - 1`
 done
+echo
 
 MEM_POST=`ps axo comm,vsz | grep apache | awk 'BEGIN { max = 0; } { if ( $2 > max ) max = $2; } END { print max; }'`
 
-echo "Memory usage of apache increased by " `expr $MEM_PRE - $MEM_POST` "KB"
+echo "Memory usage of apache increased by " `expr $MEM_POST - $MEM_PRE` "KB"
 echo "  (before $MEM_PRE and after $MEM_POST)."
