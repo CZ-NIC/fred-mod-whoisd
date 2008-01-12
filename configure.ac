@@ -58,7 +58,7 @@ AC_SUBST(APACHE_LIBEXECDIR)
 
 # check IDL dir
 AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
-                        [Directory with idl [$CWD/idl]])],
+                        [Directory with idl [/usr/share/idl/fred/]])],
                         [AC_SUBST([IDLDIR], [$withval])],
                         [AC_SUBST([IDLDIR], [/usr/share/idl/fred/])])
 
