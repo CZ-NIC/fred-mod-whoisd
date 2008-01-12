@@ -7,8 +7,8 @@ License:        GPL
 URL:            http://fred.nic.cz
 Source:         %{name}-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  apr-devel, httpd-devel, libxml2-devel, openssl-devel, fred-idl
-Requires: httpd, libxml2, openssl, fred-mod-corba
+BuildRequires:  apr-devel, httpd-devel, fred-idl
+Requires: httpd, fred-mod-corba
 
 %description
 FRED (Free Registry for Enum and Domain) is free registry system for 
@@ -18,7 +18,7 @@ queries.
 
 After instalation of this package you have to configure httpd to load this module
 by putting configuration file in conf.d directory:
-ln -s /usr/share/fred-mod-corba/02-fred-mod-whoisd-apache.conf /etc/httpd/conf.d/
+ln -s /usr/share/fred-mod-whoisd/02-fred-mod-whoisd-apache.conf /etc/httpd/conf.d/
 
 %prep
 %setup
