@@ -1,3 +1,7 @@
+2008-01-12 Jaromir Talir
+
+	* RPM support added and other small autotools changes
+
 2008-01-10 Jiri Sadek
 
 	* Automake support and autoconf somewhat rewritten
