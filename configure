@@ -1504,7 +1504,7 @@ Optional Packages:
   --with-orbit-exec-prefix=PFX Exec prefix where ORBIT is installed (optional)
   --with-apxs=PATH        Path to apxs
   --with-apr-config       location of apr-config executable
-  --with-idldir           Directory with idl [$CWD/idl]
+  --with-idldir           Directory with idl [/usr/share/idl/fred/]
   --with-idl              location of idl file containing Whois interface
                           [IDLDIR/Whois.idl]
   --with-doc              location of doxygen executable used for html
