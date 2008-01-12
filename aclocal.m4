@@ -436,54 +436,11 @@ AC_ARG_WITH([pic],
     [pic_mode=default])
 test -z "$pic_mode" && pic_mode=default
 
-# Check if we have a version mismatch between libtool.m4 and ltmain.sh.
-#
-# Note:  This should be in AC_LIBTOOL_SETUP, _after_ $ltmain have been defined.
-#        We also should do it _before_ AC_LIBTOOL_LANG_C_CONFIG that actually
-#        calls AC_LIBTOOL_CONFIG and creates libtool.
-#
-_LT_VERSION_CHECK
-
 # Use C for the default configuration in the libtool script
 tagname=
 AC_LIBTOOL_LANG_C_CONFIG
 _LT_AC_TAGCONFIG
 ])# AC_LIBTOOL_SETUP
-
-
-# _LT_VERSION_CHECK
-# -----------------
-AC_DEFUN([_LT_VERSION_CHECK],
-[AC_MSG_CHECKING([for correct ltmain.sh version])
-if test "x$ltmain" = "x" ; then
-  AC_MSG_RESULT(no)
-  AC_MSG_ERROR([
-
-*** @<:@Gentoo@:>@ sanity check failed! ***
-*** \$ltmain is not defined, please check the patch for consistency! ***
-])
-fi
-gentoo_lt_version="1.5.24"
-gentoo_ltmain_version=`sed -n '/^[[ 	]]*VERSION=/{s/^[[ 	]]*VERSION=//;p;q;}' "$ltmain"`
-if test "x$gentoo_lt_version" != "x$gentoo_ltmain_version" ; then
-  AC_MSG_RESULT(no)
-  AC_MSG_ERROR([
-
-*** @<:@Gentoo@:>@ sanity check failed! ***
-*** libtool.m4 and ltmain.sh have a version mismatch! ***
-*** (libtool.m4 = $gentoo_lt_version, ltmain.sh = $gentoo_ltmain_version) ***
-
-Please run:
-
-  libtoolize --copy --force
-
-if appropriate, please contact the maintainer of this
-package (or your distribution) for help.
-])
-else
-  AC_MSG_RESULT(yes)
-fi
-])# _LT_VERSION_CHECK
 
 
 # _LT_AC_SYS_COMPILER
@@ -825,6 +782,7 @@ s390*-*linux*|sparc*-*linux*)
       esac
       ;;
     *64-bit*)
+      libsuff=64
       case $host in
         x86_64-*kfreebsd*-gnu)
           LD="${LD-ld} -m elf_x86_64_fbsd"
@@ -1726,14 +1684,7 @@ freebsd* | dragonfly*)
     *) objformat=elf ;;
     esac
   fi
-  # Handle Gentoo/FreeBSD as it was Linux
-  case $host_vendor in
-    gentoo)
-      version_type=linux ;;
-    *)
-      version_type=freebsd-$objformat ;;
-  esac
-
+  version_type=freebsd-$objformat
   case $version_type in
     freebsd-elf*)
       library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext} $libname${shared_ext}'
@@ -1743,12 +1694,6 @@ freebsd* | dragonfly*)
     freebsd-*)
       library_names_spec='${libname}${release}${shared_ext}$versuffix $libname${shared_ext}$versuffix'
       need_version=yes
-      ;;
-    linux)
-      library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major ${libname}${shared_ext}'
-      soname_spec='${libname}${release}${shared_ext}$major'
-      need_lib_prefix=no
-      need_version=no
       ;;
   esac
   shlibpath_var=LD_LIBRARY_PATH
@@ -1896,11 +1841,13 @@ linux* | k*bsd*-gnu)
   # Some rework will be needed to allow for fast_install
   # before this can be enabled.
   hardcode_into_libs=yes
+  sys_lib_search_path_spec="/usr/lib${libsuff} /lib${libsuff} /usr/local/lib${libsuff}"
+  sys_lib_dlsearch_path_spec="/usr/lib${libsuff} /lib${libsuff}"
 
   # Append ld.so.conf contents to the search path
   if test -f /etc/ld.so.conf; then
     lt_ld_extra=`awk '/^include / { system(sprintf("cd /etc; cat %s 2>/dev/null", \[$]2)); skip = 1; } { if (!skip) print \[$]0; skip = 0; }' < /etc/ld.so.conf | $SED -e 's/#.*//;/^[ 	]*hwcap[ 	]/d;s/[:,	]/ /g;s/=[^=]*$//;s/=[^= ]* / /g;/^$/d' | tr '\n' ' '`
-    sys_lib_dlsearch_path_spec="/lib /usr/lib $lt_ld_extra"
+    sys_lib_dlsearch_path_spec="$sys_lib_dlsearch_path_spec $lt_ld_extra"
   fi
 
   # We used to test for /lib/ld.so.1 and disable shared libraries on

@@ -1,0 +1,44 @@
+Name:           @PACKAGE@
+Version:        @VERSION@
+Release:        1%{?dist}
+Summary:        FRED - unix whois server as apache module
+Group:          Applications/Utils
+License:        GPL
+URL:            http://fred.nic.cz
+Source:         %{name}-%{version}.tar.gz
+BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRequires:  apr-devel, httpd-devel, libxml2-devel, openssl-devel, fred-idl
+Requires: httpd, libxml2, openssl, fred-mod-corba
+
+%description
+FRED (Free Registry for Enum and Domain) is free registry system for 
+managing domain registrations. This package contains apache module that
+implements unix whois server. It can listen on port 43 and answer whois
+queries. 
+
+After instalation of this package you have to configure httpd to load this module
+by putting configuration file in conf.d directory:
+ln -s /usr/share/fred-mod-corba/02-fred-mod-whoisd-apache.conf /etc/httpd/conf.d/
+
+%prep
+%setup
+
+%build
+%configure --prefix=/usr --with-apxs=/usr/sbin/apxs --with-idldir=/usr/share/idl/fred/
+make
+
+%install
+rm -rf ${RPM_BUILD_ROOT}
+make DESTDIR=${RPM_BUILD_ROOT} install
+
+%clean
+rm -rf ${RPM_BUILD_ROOT}
+
+%files
+%defattr(-,root,root,-)
+/usr/lib/httpd/modules/mod_whoisd.so
+/usr/share/fred-mod-whoisd/02-fred-mod-whoisd-apache.conf
+
+%changelog
+* Sat Jan 12 2008 Jaromir Talir <jaromir.talir@nic.cz>
+- initial spec file

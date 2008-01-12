@@ -3,13 +3,13 @@
 # vim: set ts=4 sw=4:
 
 AC_PREREQ(2.59)
-AC_INIT([mod_whoisd], 2.0, [], [mod_whoisd])
+AC_INIT([fred-mod-whoisd], 2.0, [], [fred-mod-whoisd])
 AC_CONFIG_SRCDIR([mod_whoisd.c])
 
 AH_TOP([#include "unconfig.h" /* why this? See comment in unconfig.h */])
 
 # init automake
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([-Wall -Werror])
 
 # Checks for programs.
 AC_PROG_CC
@@ -51,11 +51,16 @@ APACHE_CPPFLAGS="`${apr_config} --cppflags`"
 AC_SUBST(APACHE_CFLAGS)
 AC_SUBST(APACHE_CPPFLAGS)
 
+#set apache module path
+APACHE_LIBEXECDIR=`${APXS} -q LIBEXECDIR`
+APACHE_LIBEXECDIR=${libdir}${APACHE_LIBEXECDIR#/usr/lib};
+AC_SUBST(APACHE_LIBEXECDIR)
+
 # check IDL dir
 AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
                         [Directory with idl [$CWD/idl]])],
                         [AC_SUBST([IDLDIR], [$withval])],
-                        [AC_SUBST([IDLDIR], [`pwd`/idl])])
+                        [AC_SUBST([IDLDIR], [/usr/share/idl/fred/])])
 
 # check IDL file
 AC_ARG_WITH([idl], [AS_HELP_STRING([--with-idl],
@@ -99,5 +104,6 @@ AC_DEFINE_UNQUOTED([SVN_REV], [["]$SVNREV["]], [SVN revision])
 
 # finalization
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile
+		 fred-mod-whoisd.spec])
 AC_OUTPUT
