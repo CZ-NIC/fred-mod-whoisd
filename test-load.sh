@@ -73,7 +73,7 @@ MEM_PRE=`ps axo comm,vsz | grep apache | awk 'BEGIN { max = 0; } { if ( $2 > max
 while [ $ROUNDS -gt 0 ]
 do
     tmp=`expr $ROUNDS % 10`;
-    if [ $tmp -eq 0 ]; then echo -n -e "Rounds left: $ROUNDS (total: $ROUNDS_INIT)\r"; fi;
+    if [ $tmp -eq 0 ]; then echo -n -e "Rounds left: $ROUNDS (total: $ROUNDS_INIT)              \r"; fi;
 	# Test set 1
 	rw " $DOMAIN"
 	rw " $NSSET"

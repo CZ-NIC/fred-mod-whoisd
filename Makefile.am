@@ -1,5 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
-CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la
+include $(top_srcdir)/am_doxygen.am
+
+CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la ${DX_CLEANFILES}
 
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
 noinst_DATA        = mod_whoisd.la
