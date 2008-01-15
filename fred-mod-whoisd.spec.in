@@ -21,7 +21,7 @@ CORBA technology as provided by mod_corba apache module.
 %setup
 
 %build
-%configure --prefix=/usr --with-apxs=/usr/sbin/apxs
+%configure
 make
 
 %install
@@ -39,7 +39,7 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files
 %defattr(-,root,root,-)
-/usr/lib/httpd/modules/mod_whoisd.so
+%{_libdir}/httpd/modules/mod_whoisd.so
 /usr/share/fred-mod-whoisd/02-fred-mod-whoisd-apache.conf
 
 %changelog
