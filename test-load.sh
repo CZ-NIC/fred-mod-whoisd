@@ -34,6 +34,7 @@ WHOIS=whois
 HOST=localhost
 ROUNDS=100
 ROUNDS_INIT=$ROUNDS
+VERBOSE=1
 
 # Testing data
 DOMAIN=TEST.CZ
@@ -73,7 +74,9 @@ MEM_PRE=`ps axo comm,vsz | grep apache | awk 'BEGIN { max = 0; } { if ( $2 > max
 while [ $ROUNDS -gt 0 ]
 do
     tmp=`expr $ROUNDS % 10`;
-    if [ $tmp -eq 0 ]; then echo -n -e "Rounds left: $ROUNDS (total: $ROUNDS_INIT)              \r"; fi;
+    if [ $VERBOSE -eq 1 ]; then
+        if [ $tmp -eq 0 ]; then echo -n -e "Rounds left: $ROUNDS (total: $ROUNDS_INIT)              \r"; fi;
+    fi
 	# Test set 1
 	rw " $DOMAIN"
 	rw " $NSSET"
@@ -99,7 +102,6 @@ do
 
 	ROUNDS=`expr $ROUNDS - 1`
 done
-echo
 
 MEM_POST=`ps axo comm,vsz | grep apache | awk 'BEGIN { max = 0; } { if ( $2 > max ) max = $2; } END { print max; }'`
 
