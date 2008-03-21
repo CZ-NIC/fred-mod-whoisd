@@ -22,10 +22,10 @@ LoadModule whoisd_module modules/mod_whoisd.so
    # mod_corba's configuration, you have to have installed mod_corba module
    CorbaEnable       On
    CorbaNameservice  @NSHOST@
-   CorbaObject       @CONTEXTOBJECTNAME@ @OBJECTALIAS@
+   CorbaObject       @OBJECTNAME@ Whois_alias
 
    WhoisProtocol     On
-   WhoisObject       @OBJECTALIAS@
+   WhoisObject       Whois_alias
 #   WhoisDisclaimer   "/etc/apache2/disclaimer.txt"
 </VirtualHost>
 

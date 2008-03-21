@@ -5,7 +5,7 @@ CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la ${DX_CLEANFILES} con
 
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
 noinst_DATA        = mod_whoisd.la
-dist_pkgdata_DATA = conf/02-fred-mod-whoisd-apache.conf conf/fred-mod-whoisd-apache.conf
+dist_pkgdata_DATA = conf/fred-mod-whoisd-apache.conf
 EXTRA_DIST = unconfig.h fred-mod-whoisd.spec
 BUILT_SOURCES = Whois.h Whois-common.c Whois-stubs.c
 
