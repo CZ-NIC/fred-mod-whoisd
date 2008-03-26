@@ -9,6 +9,32 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AH_TOP([#include "unconfig.h" /* why this? See comment in unconfig.h */])
 
+### function to check if APACHE_LIBEXECDIR path contain one or more 
+### 'lib' part
+### this is bug(feature) on some distributions (e.g. arch) where
+### directory for apache modules is /usr/lib/apache. On distros like
+### debian, fedora this directory is /usr/lib/apache/1.3 (debian)
+### and /usr/lib/httpd/modules. So on debian and fedora code to
+### create APACHE_LIBEXECDIR works fine, but on that 'weird' distros
+### it produce result like /usr/lib/lib/apache, and that is wrong
+AC_DEFUN([AC_CHECK_LIBEXECDIR],
+[
+ #count number of lib parts in string
+ count=`echo $APACHE_LIBEXECDIR | sed 's/\//\n/g' | grep -c 'lib'`
+ if test "$count" -gt "1"; then
+     #lets trim only last one part (e.g. on arch remain only 'apache')
+     APACHE_LIBEXECDIR=${LIBRARYDIR}${APACHE_LEDIR##${APACHE_LEDIR%/*}};
+ fi
+])
+
+### place where mod_whoisd.so is installed
+AC_DEFUN([AC_CREATE_MODULE_INSTALLDIR],
+[
+ module_installdir=$APACHE_LIBEXECDIR
+ AC_SUBST([MODULE_INSTALLDIR], [$module_installdir])
+])
+
+
 # doxygen
 DX_HTML_FEATURE(ON)
 DX_CHM_FEATURE(OFF)
@@ -76,8 +102,14 @@ AC_SUBST(APACHE_CPPFLAGS)
 #set apache module path
 #hack: replacing lib-part of dir with ${libdir} to support prefix install
 APACHE_LEDIR=`${APXS} -q LIBEXECDIR`
-APACHE_LIBEXECDIR=${libdir}${APACHE_LEDIR##${APACHE_LEDIR%/*/*}};
+AS_AC_EXPAND([LIBRARYDIR], [$libdir])
+APACHE_LIBEXECDIR=${LIBRARYDIR}${APACHE_LEDIR##${APACHE_LEDIR%/*/*}};
+
+AC_CHECK_LIBEXECDIR()
+
 AC_SUBST(APACHE_LIBEXECDIR)
+
+AC_CREATE_MODULE_INSTALLDIR()
 
 # check IDL dir
 AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
@@ -134,5 +166,5 @@ AC_DEFINE_UNQUOTED([SVN_REV], [["]$SVNREV["]], [SVN revision])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
 		 fred-mod-whoisd.spec
-         conf/fred-mod-whoisd-apache.conf])
+         conf/02-fred-mod-whoisd-apache.conf])
 AC_OUTPUT

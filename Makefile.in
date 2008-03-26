@@ -67,12 +67,13 @@ DIST_COMMON = README $(am__configure_deps) $(dist_pkgdata_DATA) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/config.h.in $(srcdir)/fred-mod-whoisd.spec.in \
 	$(top_srcdir)/am_doxygen.am \
-	$(top_srcdir)/conf/fred-mod-whoisd-apache.conf.in \
+	$(top_srcdir)/conf/02-fred-mod-whoisd-apache.conf.in \
 	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
 	config.guess config.sub depcomp install-sh ltmain.sh missing
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ax_orbit_cosnaming.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/acinclude.m4 \
+	$(top_srcdir)/m4/ax_orbit_cosnaming.m4 \
 	$(top_srcdir)/m4/ax_prog_doxygen.m4 \
 	$(top_srcdir)/m4/ax_with_apxs.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -82,7 +83,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES = fred-mod-whoisd.spec \
-	conf/fred-mod-whoisd-apache.conf
+	conf/02-fred-mod-whoisd-apache.conf
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libmodwhoisd_la_DEPENDENCIES = liborbwhoisd.la
 am_libmodwhoisd_la_OBJECTS = libmodwhoisd_la-whois-client.lo \
@@ -202,12 +203,14 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
+LIBRARYDIR = @LIBRARYDIR@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MODULE_INSTALLDIR = @MODULE_INSTALLDIR@
 NMEDIT = @NMEDIT@
 NSHOST = @NSHOST@
 OBJECTNAME = @OBJECTNAME@
@@ -312,10 +315,10 @@ ACLOCAL_AMFLAGS = -I m4
 @DX_COND_doc_TRUE@    $(DX_CLEAN_LATEX)
 
 @DX_COND_doc_TRUE@@DX_COND_latex_TRUE@DX_CLEAN_LATEX = @DX_DOCDIR@/latex
-CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la ${DX_CLEANFILES} conf/fred-mod-whoisd-apache.conf
+CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la ${DX_CLEANFILES} conf/02-fred-mod-whoisd-apache.conf
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
 noinst_DATA = mod_whoisd.la
-dist_pkgdata_DATA = conf/fred-mod-whoisd-apache.conf
+dist_pkgdata_DATA = conf/02-fred-mod-whoisd-apache.conf
 EXTRA_DIST = unconfig.h fred-mod-whoisd.spec
 BUILT_SOURCES = Whois.h Whois-common.c Whois-stubs.c
 INCL = ${APACHE_CFLAGS} ${APACHE_CPPFLAGS} ${ORBIT_CFLAGS} ${CPPFLAGS} 
@@ -386,7 +389,7 @@ distclean-hdr:
 	-rm -f config.h stamp-h1
 fred-mod-whoisd.spec: $(top_builddir)/config.status $(srcdir)/fred-mod-whoisd.spec.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
-conf/fred-mod-whoisd-apache.conf: $(top_builddir)/config.status $(top_srcdir)/conf/fred-mod-whoisd-apache.conf.in
+conf/02-fred-mod-whoisd-apache.conf: $(top_builddir)/config.status $(top_srcdir)/conf/02-fred-mod-whoisd-apache.conf.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 clean-noinstLTLIBRARIES:

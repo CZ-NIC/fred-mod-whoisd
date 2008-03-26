@@ -16,7 +16,7 @@
 Listen @PORT@
 
 #LoadModule corba_module modules/mod_corba.so
-LoadModule whoisd_module modules/mod_whoisd.so
+LoadModule whoisd_module @MODULE_INSTALLDIR@/mod_whoisd.so
 
 <VirtualHost *:@PORT@>
    # mod_corba's configuration, you have to have installed mod_corba module
