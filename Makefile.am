@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 include $(top_srcdir)/am_doxygen.am
 
-CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la ${DX_CLEANFILES} conf/02-fred-mod-whoisd-apache.conf
+CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la conf/02-fred-mod-whoisd-apache.conf
 
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
 noinst_DATA        = mod_whoisd.la
@@ -23,6 +23,12 @@ liborbwhoisd_la_LDFLAGS = ${ORBIT_LIBS}
 libmodwhoisd_la_SOURCES = whois-client.c whois-client.h mod_whoisd.c 
 libmodwhoisd_la_CFLAGS = ${INCL} -include ${IDL_H}
 libmodwhoisd_la_LIBADD = liborbwhoisd.la
+
+if DX_COND_html
+doc_DATA = @DX_DOCDIR@/html/*
+$(doc_DATA): doxygen-doc
+MOSTLYCLEANFILES = ${DX_CLEANFILES}
+endif
 
 install-exec-local:
 	mkdir -p ${DESTDIR}${APACHE_LIBEXECDIR}; \

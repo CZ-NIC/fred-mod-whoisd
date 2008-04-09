@@ -111,11 +111,13 @@ AC_SUBST(APACHE_LIBEXECDIR)
 
 AC_CREATE_MODULE_INSTALLDIR()
 
+AS_AC_EXPAND([DATAROOTDIR], [$datarootdir])
+
 # check IDL dir
 AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
-                        [Directory with idl [/usr/local/share/idl/fred/]])],
+                        [Directory with idl [DATAROOTDIR/idl/fred/]])],
                         [AC_SUBST([IDLDIR], [$withval])],
-                        [AC_SUBST([IDLDIR], [/usr/local/share/idl/fred/])])
+                        [AC_SUBST([IDLDIR], [$DATAROOTDIR/idl/fred/])])
 
 # check IDL file
 AC_ARG_WITH([idl], [AS_HELP_STRING([--with-idl],
