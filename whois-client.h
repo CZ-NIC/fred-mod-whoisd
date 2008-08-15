@@ -64,6 +64,7 @@ typedef void *service_Whois;
 #define T_NSSET		2   /* Object type nsset. */
 #define T_CONTACT	4   /* Object type contact. */
 #define T_REGISTRAR	8   /* Object type registrar. */
+#define T_KEYSET	16  /* Object type keyset. */
 
 /**
  * Axes used in reverse searches.
@@ -74,6 +75,7 @@ typedef enum {
 	SA_ADMIN_C,
 	SA_TEMP_C,
 	SA_NSSET,
+	SA_KEYSET,
 	SA_NSERVER,
 	SA_TECH_C
 }search_axis;
@@ -95,6 +97,7 @@ typedef struct {
 	char	**admin_c;     /**< Administrators. */
 	char	**temp_c;      /**< Temporary contacts. */
 	char	 *nsset;       /**< Nsset handle. */
+	char 	 *keyset;      /**< KeySet handle */
 	char	 *registrar;   /**< Handle of registrar. */
 	char	**status;      /**< Status array for domain. */
 	char	 *registered;  /**< Date of domain registration. */
@@ -113,6 +116,23 @@ typedef struct {
 	char	 *created;     /**< Date of nsset creation. */
 	char	 *changed;     /**< Last update of nsset. */
 }obj_nsset;
+
+/** Structure holding keyset data */
+typedef struct {
+	char 	*keyset;	/**< Handle of keyset. */
+	
+	char   **tech_c;	/**< Handles of technical contacts. */
+
+	int	*key_tag;	/**< Key tag for DNSKEY RR (RFC 4043 for details) */
+	int	*alg;		/**< Algorithm type */ 
+	int 	*digest_type;	/**< Digest type (must be SHA-1) */
+	char   **digest;	/**< Digests in Delegation Signer records */
+	int	*max_sig_life;	/**< Signature expiration period */	
+	
+	char 	*registrar;	/**< Handle of registrar. */
+	char 	*created;	/**< Date of keyset creation. */
+	char 	*changed;	/**< Last update of keyset. */
+} obj_keyset;
 
 /** Structure holding contact data. */
 typedef struct {
@@ -143,6 +163,7 @@ typedef struct {
 	union {
 		obj_domain	d;
 		obj_nsset	n;
+		obj_keyset	k;
 		obj_contact	c;
 		obj_registrar	r;
 	}obj;

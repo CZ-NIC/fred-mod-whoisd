@@ -120,7 +120,7 @@ static const char *usagestr = \
 %   -q version    Returns version of whois server.\n\
 %   -q indexes    Returns list of attributes which can be used in search. The\n\
 %                 attributes have form object:attribute.\n\
-%   -q templates  Returns templates for all four object types.\n\
+%   -q templates  Returns templates for all five object types.\n\
 % \n\
 % There's yet another way how to specify a type of object to lookup. Just\n\
 % prefix the object's identifier with the name of a type. The following two\n\
@@ -139,7 +139,7 @@ static const char *usagestr = \
 
 static const char *indexlist = \
 "% The folowing object types can be looked up in whois database:\n\
-%    domain, nsset, contact, registrar.\n\
+%    domain, nsset, keyset, contact, registrar.\n\
 % \n\
 % If you don't specify -i option the object is looked up by its primary key.\n\
 % Specify object type by -T option, if you want to narrow the search.\n\
@@ -152,8 +152,10 @@ static const char *indexlist = \
 % domain:admin-c\n\
 % domain:temp-c\n\
 % domain:nsset\n\
+% domain:keyset\n\
 % nsset:nserver\n\
 % nsset:tech-c\n\
+% keyset:tech-c\n\
 ";
 
 static const char *templatelist = \
@@ -175,6 +177,18 @@ validated-to: [optional]   [single]\n\
 nsset:        [mandatory]  [single]\n\
 nserver:      [mandatory]  [multiple]\n\
 tech-c:       [mandatory]  [multiple]\n\
+registrar:    [mandatory]  [single]\n\
+created:      [mandatory]  [single]\n\
+changed:      [optional]   [single]\n\
+\n\
+keyset:	      [mandatory]  [single]\n\
+ds            [mandatory]  [multiple]\n\
+tech-c:       [mandatory]  [multiple]\n\
+key-tag	      [optional]   [multiple]\n\
+alg	      [optional]   [multiple]\n\
+digest-type   [optional]   [multiple]\n\
+digest	      [optional]   [multiple]\n\
+max-sig-life  [optional]   [multiple]\n\
 registrar:    [mandatory]  [single]\n\
 created:      [mandatory]  [single]\n\
 changed:      [optional]   [single]\n\
@@ -347,6 +361,7 @@ static void print_domain_object(apr_bucket_brigade *bb, obj_domain *d)
 	SAFE_PRINTF("temp-c:       %s\n", d->temp_c[i]);
 	}
 	SAFE_PRINTF("nsset:        %s\n", d->nsset);
+	SAFE_PRINTF("keyset:       %s\n", d->keyset);
 	SAFE_PRINTF("registrar:    %s\n", d->registrar);
 	if (d->status[0] == NULL) {
 	SAFE_PRINTF("status:       %s\n", "paid and in zone");
@@ -384,6 +399,92 @@ static void print_nsset_object(apr_bucket_brigade *bb, obj_nsset *n)
 	SAFE_PRINTF("tech-c:       %s\n", n->tech_c[i]);
 	}
 	SAFE_PRINTF("registrar:    %s\n", n->registrar);
+	SAFE_PRINTF("created:      %s\n", n->created);
+	SAFE_PRINTF("changed:      %s\n", n->changed);
+	apr_brigade_puts(bb, NULL, NULL, "\n");
+
+#undef SAFE_PRINTF
+}
+
+/** 
+ * Function returns a name for the given type number (see RFC 4034 for details)
+ * or "unknown" if the type is unknown
+ *
+ * @param type	Algorithm type 
+ *
+ */
+char *ds_get_algorithm_type(int type)
+{
+/**
+ * 	Algorithm types for DS record (RFC 4034)
+     0	 reserved
+     1   RSA/MD5 [RSAMD5]         n      [RFC 2537]  NOT RECOMMENDED
+     2   Diffie-Hellman [DH]      n      [RFC 2539]   -
+     3   DSA/SHA-1 [DSA]          y      [RFC 2536]  OPTIONAL
+     4   Elliptic Curve [ECC]              TBA       -
+     5   RSA/SHA-1 [RSASHA1]      y      [RFC 3110]  MANDATORY
+   252   Indirect [INDIRECT]      n                  -
+   253   Private [PRIVATEDNS]     y      see below  OPTIONAL
+   254   Private [PRIVATEOID]*
+*/
+
+	switch(type) { 
+		case 1:
+			return "RSA/MD5";
+		case 2:
+			return "Diffie-Hellman";
+		case 3:
+			return "DSA/SHA-1";        
+		case 4:
+			return "Elliptic Curve";  
+		case 5:
+			return "RSA/SHA-1";  
+		default: 
+			return "unknown";
+	}
+}
+
+/**
+ * Function prints keyset information to bucket brigade.
+ *
+ * @param bb    Bucket brigade.
+ * @param n     Keyset object.
+ */
+static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
+{
+	int	i;
+	char *alg;
+
+#define SAFE_PRINTF(fmt, str) \
+	if (str != NULL) apr_brigade_printf(bb, NULL, NULL, fmt, str);
+
+	SAFE_PRINTF("keyset:       %s\n", n->keyset);
+
+	for (i = 0; n->digest[i] != NULL; i++) {
+		apr_brigade_printf(bb, NULL, NULL, "delsigner:    keytag=%i", n->key_tag[i]);
+
+		apr_brigade_printf(bb, NULL, NULL, ", alg=%i", alg);
+		apr_brigade_printf(bb, NULL, NULL, " (%s)", ds_get_algorithm_type(n->alg[i]));
+
+		// the only type of digest type allowed
+		apr_brigade_printf(bb, NULL, NULL, ", digest_type=%i", n->digest_type[i]);
+		if(n->digest_type[i] == 1) {
+			apr_brigade_puts(bb, NULL, NULL, " (SHA-1)");
+		} else {
+			apr_brigade_puts(bb, NULL, NULL, " (unknown)");
+		}
+
+		SAFE_PRINTF(", digest=%s", n->digest[i]);
+		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, ", max_sig_life=%i", n->max_sig_life[i]);
+
+		apr_brigade_puts(bb, NULL, NULL, "\n");
+	}
+
+	for (i = 0; n->tech_c[i] != NULL; i++) {
+		SAFE_PRINTF("tech-c:       %s\n", n->tech_c[i]);
+	}
+
+     	SAFE_PRINTF("registrar:    %s\n", n->registrar);
 	SAFE_PRINTF("created:      %s\n", n->created);
 	SAFE_PRINTF("changed:      %s\n", n->changed);
 	apr_brigade_puts(bb, NULL, NULL, "\n");
@@ -573,6 +674,9 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 			case T_NSSET:
 				print_nsset_object(bb, &objects[i].obj.n);
 				break;
+			case T_KEYSET:
+				print_keyset_object(bb, &objects[i].obj.k);
+				break;
 			case T_CONTACT:
 				print_contact_object(bb, &objects[i].obj.c);
 				break;
@@ -712,6 +816,10 @@ static int getobjtype(int *bittype, const char *strtype)
 		*bittype |= T_NSSET;
 		return 0;
 	}
+	else if (strncasecmp(strtype, "keyset", MAXTYPELEN) == 0) {
+		*bittype |= T_KEYSET;
+		return 0;
+	}
 	else if (strncasecmp(strtype, "contact", MAXTYPELEN) == 0) {
 		*bittype |= T_CONTACT;
 		return 0;
@@ -839,6 +947,9 @@ static int process_whois_connection(conn_rec *c)
 				else if (strncasecmp(optarg, "nsset",
 							MAXAXELEN) == 0)
 					wr->axe = SA_NSSET;
+				else if (strncasecmp(optarg, "keyset", 
+							MAXAXELEN) == 0)
+					wr->axe = SA_KEYSET;
 				else if (strncasecmp(optarg, "nserver",
 							MAXAXELEN) == 0)
 					wr->axe = SA_NSERVER;
@@ -955,7 +1066,7 @@ static int process_whois_connection(conn_rec *c)
 
 	/* if type of object was not specified, all types should be searched */
 	if (!wr->type)
-		wr->type = (T_DOMAIN | T_NSSET | T_CONTACT | T_REGISTRAR);
+		wr->type = (T_DOMAIN | T_NSSET | T_CONTACT | T_REGISTRAR | T_KEYSET);
 
 	/* process request */
 	status = process_whois_query(c, sc, wr);

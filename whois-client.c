@@ -356,9 +356,58 @@ copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
 }
 
 /**
+ * Copy corba representation of keyset object to our representation.
+ *
+ * @param obj         Field in object array which is destination of copy.
+ * @param c_keyset     Nsset detail returned from CORBA.
+ */
+static void
+copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
+{
+	obj_keyset *k;
+	int	 i, len;
+
+	/* copy keyset data */
+	obj->type = T_KEYSET;
+	k = &obj->obj.k;
+	k->keyset = NULL_STRDUP(c_keyset->handle);
+	k->registrar = NULL_STRDUP(c_keyset->registrarHandle);
+	k->created = NULL_STRDUP(c_keyset->createDate);
+	k->changed = NULL_STRDUP(c_keyset->updateDate);
+
+	len = c_keyset->dsrecords._length + 1;
+
+	k->key_tag = (int *) malloc(len * sizeof(int));
+	k->digest = (char **) malloc(len * sizeof (char *));
+	k->alg = (int *) malloc(len * sizeof(int));
+	k->digest_type = (int *) malloc(len * sizeof(int));
+	k->max_sig_life = (int *) malloc(len * sizeof(int));
+	
+	for (i = 0; i < (len - 1); i++) {
+		k->key_tag[i] = c_keyset->dsrecords._buffer[i].keyTag; 
+		k->digest[i] = strdup(c_keyset->dsrecords._buffer[i].digest); 
+		k->alg[i] = c_keyset->dsrecords._buffer[i].alg; 
+		k->digest_type[i] = c_keyset->dsrecords._buffer[i].digestType; 
+		k->max_sig_life[i] = c_keyset->dsrecords._buffer[i].maxSigLife; 
+	}
+	k->key_tag[i] = -1;		
+	k->digest[i] = NULL;
+	k->alg[i] = -1;
+	k->digest_type[i] = -1;
+	k->max_sig_life[i] = -1;
+
+	k->tech_c = (char **)
+		malloc((c_keyset->admins._length + 1) * sizeof (char *));
+	for (i = 0; i < c_keyset->admins._length; i++)
+		k->tech_c[i] = strdup(c_keyset->admins._buffer[i]);
+	k->tech_c[i] = NULL;
+}
+
+/**
  * The function does recursion on nsset.
  *
  * @param service     Whois corba object reference.
+ * @param rec	      Switches recursion on/off
  * @param n           Nsset object on which is done recursion.
  * @param objects     Array of results.
  * @param index_free  First free index in array of results.
@@ -367,6 +416,46 @@ copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
  */
 static int
 recurse_nsset(service_Whois service, int rec, obj_nsset *n,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	int	 i, j, ret;
+
+	if (*index_free >= MAX_OBJECT_COUNT)
+		return CORBA_OK_LIMIT;
+	if (!rec)
+		return CORBA_OK;
+
+	/* recursion on tech_c */
+	for (i = 0; n->tech_c[i] != NULL; i++) {
+		/* detect duplicates */
+		for (j = 0; j < *index_free; j++)
+			if (objects[j].type == T_CONTACT &&
+					strcmp(objects[j].obj.c.contact, n->tech_c[i]) == 0)
+				break;
+		if (j < *index_free)
+			continue;
+
+		ret = get_contact_by_handle(service, n->tech_c[i],
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK) return ret;
+	}
+
+	return CORBA_OK;
+}
+
+/**
+ * The function does recursion on keyset.
+ *
+ * @param service     Whois corba object reference.
+ * @param rec	      Switches recursion on/off
+ * @param n           Nsset object on which is done recursion.
+ * @param objects     Array of results.
+ * @param index_free  First free index in array of results.
+ * @param errmsg      Buffer for error message.
+ * @return            Status.
+ */
+static int
+recurse_keyset(service_Whois service, int rec, obj_keyset *n,
 		general_object *objects, int *index_free, char *errmsg)
 {
 	int	 i, j, ret;
@@ -450,6 +539,62 @@ get_nsset_by_handle(service_Whois service, const char *handle, int rec,
 }
 
 /**
+ * Search keyset by handle and dependent objects if recursion is switched on.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param handle     Handle of keyset.
+ * @param rec        Recursive lookup is performed if true.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_keyset_by_handle(service_Whois service, const char *handle, int rec,
+		general_object *objects, int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_KeySetDetail	*c_keyset; /* keyset detail */
+	int	 retr;  /* retry counter */
+	int	 ret;   /* return code used in some cases */
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call keyset method */
+		c_keyset = ccReg_Admin_getKeySetByHandle((ccReg_Admin) service,
+				handle, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		if (IS_OBJECT_NOT_FOUND(ev))
+			ret = CORBA_OK;
+		else {
+			ret = CORBA_SERVICE_FAILED;
+			strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+			errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		}
+		CORBA_exception_free(ev);
+		return ret;
+	}
+	CORBA_exception_free(ev);
+
+	copy_keyset(&objects[(*index_free)++], c_keyset);
+	CORBA_free(c_keyset);
+
+	return recurse_keyset(service, rec, &objects[*index_free - 1].obj.k,
+			objects, index_free, errmsg);
+}
+
+
+/**
  * Search nsset by its attribute and dependent objects if recursion is
  * switched on.
  *
@@ -513,6 +658,74 @@ get_nsset_by_attr(service_Whois service,
 	}
 
 	CORBA_free(c_nssets);
+
+	return ret;
+}
+
+/**
+ * Search keyset by its attribute and dependent objects if recursion is
+ * switched on.
+ *
+ * @param service    Whois CORBA object reference.
+ * @param key        Attribute of keyset.
+ * @param attr       Attribute type.
+ * @param rec        Recursive lookup is performed if true.
+ * @param objects    Array of resulting objects.
+ * @param index_free First free item in array of objects.
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+static int
+get_keyset_by_attr(service_Whois service,
+		const char *key,
+		ccReg_KeySetInvKeyType attr,
+		int rec,
+		general_object *objects,
+		int *index_free, char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	ccReg_KeySetDetails	*c_keysets; /* keyset details */
+	int	 retr;  /* retry counter */
+	int	 i;
+	int	 ret;
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call keyset method */
+		c_keysets = ccReg_Admin_getKeySetsByInverseKey(
+				(ccReg_Admin) service, key, attr,
+				MAX_OBJECT_COUNT - *index_free, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		CORBA_exception_free(ev);
+		return CORBA_SERVICE_FAILED;
+	}
+	CORBA_exception_free(ev);
+
+	ret = CORBA_OK;
+	/* copy all returned keysets */
+	for (i = 0; i < c_keysets->_length && *index_free < MAX_OBJECT_COUNT; i++)
+	{
+		copy_keyset(&objects[(*index_free)++], &c_keysets->_buffer[i]);
+		ret = recurse_keyset(service, rec,
+				&objects[(*index_free) - 1].obj.k,
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK)
+			break;
+	}
+
+	CORBA_free(c_keysets);
 
 	return ret;
 }
@@ -598,6 +811,7 @@ copy_domain(general_object *obj, ccReg_DomainDetail *c_domain)
 	else
 		d->registrant = NULL;
 	d->nsset = NULL_STRDUP(c_domain->nssetHandle);
+	d->keyset = NULL_STRDUP(c_domain->keysetHandle);
 	d->registrar = NULL_STRDUP(c_domain->registrarHandle);
 	d->registered = NULL_STRDUP(c_domain->createDate);
 	d->changed = NULL_STRDUP(c_domain->updateDate);
@@ -709,6 +923,20 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 			ret = get_nsset_by_handle(service, d->nsset, rec,
 					objects, index_free, errmsg);
 			if (ret != CORBA_OK) return ret;
+		}
+	}
+
+	/* recursion on keyset */
+	if (d->keyset != NULL) {
+		/* detect duplicates */
+		for (j=0; j < *index_free; j++) 
+			if (objects[j].type == T_KEYSET && 
+					strcmp(objects[j].obj.k.keyset, d->keyset) == 0)
+				break;
+		if (j == *index_free) {
+			ret = get_keyset_by_handle(service, d->keyset, rec,
+					objects, index_free, errmsg);
+			if(ret != CORBA_OK) return ret;
 		}
 	}
 
@@ -870,6 +1098,7 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 		case SA_NSSET:
 			ret = get_domain_by_attr(service, wr->value,
 					ccReg_DIKT_NSSET, rec, objects,
+
 					&ifree, errmsg);
 			break;
 		case SA_NSERVER:
@@ -877,10 +1106,25 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 					ccReg_NIKT_NS, rec, objects,
 					&ifree, errmsg);
 			break;
+		case SA_KEYSET:
+			ret = get_domain_by_attr(service, wr->value,
+ 					ccReg_DIKT_KEYSET, rec, objects,
+                                        &ifree, errmsg);
+			break;
 		case SA_TECH_C:
-			ret = get_nsset_by_attr(service, wr->value,
+			if (wr->type & T_NSSET) {
+				ret = get_nsset_by_attr(service, wr->value,
 					ccReg_NIKT_TECH, rec, objects,
 					&ifree, errmsg);
+
+			} else if(wr->type & T_KEYSET) {
+			/* if no type is specified, just look for nsset -
+ 				for backward compatibility
+			*/
+				ret = get_keyset_by_attr(service, wr->value,
+					ccReg_KIKT_TECH, rec, objects,
+					&ifree, errmsg);
+			}
 			break;
 		default:
 			/* search by type */
@@ -891,6 +1135,11 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 			}
 			if (wr->type & T_NSSET) {
 				ret = get_nsset_by_handle(service, wr->value,
+						rec, objects, &ifree, errmsg);
+				if (ret != CORBA_OK) goto search_end;
+			}
+			if (wr->type & T_KEYSET) {
+				ret = get_keyset_by_handle(service, wr->value,
 						rec, objects, &ifree, errmsg);
 				if (ret != CORBA_OK) goto search_end;
 			}
@@ -925,6 +1174,7 @@ whois_release_data(general_object *objects)
 	int	 i, j;
 	obj_domain	*d;
 	obj_nsset	*n;
+	obj_keyset	*k;
 	obj_contact	*c;
 	obj_registrar	*r;
 
@@ -939,6 +1189,7 @@ whois_release_data(general_object *objects)
 					free(d->admin_c[j]);
 				free(d->admin_c);
 				free(d->nsset);
+				free(d->keyset);
 				free(d->registrar);
 				for (j = 0; d->status[j] != NULL; j++)
 					free(d->status[j]);
@@ -961,6 +1212,26 @@ whois_release_data(general_object *objects)
 				free(n->registrar);
 				free(n->created);
 				free(n->changed);
+				break;
+			case T_KEYSET:
+				k = &objects[i].obj.k;
+				free(k->keyset);
+				for(j = 0; k->digest[j] != NULL; j++)
+					free(k->digest[j]);
+
+				free(k->digest);
+				free(k->key_tag);
+				free(k->alg);
+				free(k->digest_type);
+				free(k->max_sig_life);
+				
+				for(j = 0; k->tech_c[j] != NULL; j++) 
+					free(k->tech_c[j]);
+
+				free(k->tech_c);
+				free(k->registrar);
+				free(k->created);
+				free(k->changed);
 				break;
 			case T_CONTACT:
 				c = &objects[i].obj.c;
