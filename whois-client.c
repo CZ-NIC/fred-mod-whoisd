@@ -31,7 +31,7 @@
 #include <orbit/orbit.h>
 #include <ORBitservices/CosNaming.h>
 
-/* This header file was generated from the idl */
+/* This header file was generated from the idl  */
 #include "whois-client.h"
 
 #ifdef HAVE_CONFIG_H
@@ -1112,17 +1112,15 @@ whois_corba_call(service_Whois service, const whois_request *wr,
                                         &ifree, errmsg);
 			break;
 		case SA_TECH_C:
-			if (wr->type & T_NSSET) {
-				ret = get_nsset_by_attr(service, wr->value,
-					ccReg_NIKT_TECH, rec, objects,
-					&ifree, errmsg);
-
-			} else if(wr->type & T_KEYSET) {
-			/* if no type is specified, just look for nsset -
- 				for backward compatibility
-			*/
+			// look for nsset by default
+			if(wr->type & T_KEYSET && !(wr->type & T_NSSET)) {
 				ret = get_keyset_by_attr(service, wr->value,
 					ccReg_KIKT_TECH, rec, objects,
+					&ifree, errmsg);
+
+			} else {
+				ret = get_nsset_by_attr(service, wr->value,
+					ccReg_NIKT_TECH, rec, objects,
 					&ifree, errmsg);
 			}
 			break;

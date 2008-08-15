@@ -33,7 +33,7 @@
 #include "http_log.h"
 #define CORE_PRIVATE
 #include "http_config.h"
-#include "http_connection.h"	/* connection hooks */
+#include "http_connection.h"	/* connection hooks  */
 #undef CORE_PRIVATE
 
 #include "apr.h"
@@ -111,7 +111,7 @@ static const char *usagestr = \
 % Options:\n\
 %   -r       Switch off recursion. Only the object which is primary target\n\
 %            of query is returned.\n\
-%   -T type  Type of object to lookup (domain, nsset, contact, registrar).\n\
+%   -T type  Type of object to lookup (domain, nsset, keyset, contact, registrar).\n\
 %            There may be more types separated by comma without spaces\n\
 %            between them. The types are case-insensitive.\n\
 %   -i attr  Lookup object by its attribute. Attribute can be any of\n\
@@ -160,7 +160,7 @@ static const char *indexlist = \
 
 static const char *templatelist = \
 "% Object type templates are listed in following order:\n\
-%     domain, nsset, contact, registrar.\n\
+%     domain, nsset, keyset, contact, registrar.\n\
 \n\
 domain:       [mandatory]  [single]\n\
 registrant:   [optional]   [single]\n\
@@ -182,13 +182,8 @@ created:      [mandatory]  [single]\n\
 changed:      [optional]   [single]\n\
 \n\
 keyset:	      [mandatory]  [single]\n\
-ds            [mandatory]  [multiple]\n\
+delsigner:    [mandatory]  [multiple]\n\
 tech-c:       [mandatory]  [multiple]\n\
-key-tag	      [optional]   [multiple]\n\
-alg	      [optional]   [multiple]\n\
-digest-type   [optional]   [multiple]\n\
-digest	      [optional]   [multiple]\n\
-max-sig-life  [optional]   [multiple]\n\
 registrar:    [mandatory]  [single]\n\
 created:      [mandatory]  [single]\n\
 changed:      [optional]   [single]\n\
@@ -453,7 +448,6 @@ char *ds_get_algorithm_type(int type)
 static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
 {
 	int	i;
-	char *alg;
 
 #define SAFE_PRINTF(fmt, str) \
 	if (str != NULL) apr_brigade_printf(bb, NULL, NULL, fmt, str);
@@ -463,7 +457,7 @@ static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
 	for (i = 0; n->digest[i] != NULL; i++) {
 		apr_brigade_printf(bb, NULL, NULL, "delsigner:    keytag=%i", n->key_tag[i]);
 
-		apr_brigade_printf(bb, NULL, NULL, ", alg=%i", alg);
+		apr_brigade_printf(bb, NULL, NULL, ", alg=%i", n->alg[i]);
 		apr_brigade_printf(bb, NULL, NULL, " (%s)", ds_get_algorithm_type(n->alg[i]));
 
 		// the only type of digest type allowed
