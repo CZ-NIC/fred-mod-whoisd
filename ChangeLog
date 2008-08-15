@@ -1,3 +1,7 @@
+2008-08-15 Juraj Vicenik (version 3.0.0)
+
+	* DNSSEC keyset object support
+
 2008-06-20 Jaromir Talir (version 2.2.0)
 
 	* Minor configuration and build enhancments
