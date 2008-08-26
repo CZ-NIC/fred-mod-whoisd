@@ -167,6 +167,7 @@ registrant:   [optional]   [single]\n\
 admin-c:      [optional]   [multiple]\n\
 temp-c:       [optional]   [multiple]\n\
 nsset:        [optional]   [single]\n\
+keyset:	      [optional]   [single]\n\
 registrar:    [mandatory]  [single]\n\
 status:       [optional]   [multiple]\n\
 registered:   [mandatory]  [single]\n\
