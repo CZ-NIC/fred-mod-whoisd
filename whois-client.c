@@ -150,7 +150,65 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 #endif
 
 /**
- * Search registrar by handle.
+ * Check for duplicates in array of objects. 
+ *
+ * @param type       Which type of objects to look for.
+ * @param handle     Handle of the object.
+ * @param index_free First free item in array of objects.
+ * @return           0 if no duplicates are present, 1 otherwise.
+ */
+int check_duplicates(int type, char *handle, general_object *objects, int index_free) 
+{
+	int j;
+
+	switch (type) {
+		case T_CONTACT:
+			for (j = 0; j < index_free; j++)
+				if (objects[j].type == T_CONTACT &&
+						strcmp(objects[j].obj.c.contact, handle) == 0) {
+					return 1;
+				}
+
+			break;
+		case T_REGISTRAR:
+			for (j = 0; j < index_free; j++)
+				if (objects[j].type == T_REGISTRAR &&
+						strcmp(objects[j].obj.r.registrar, handle) == 0) {
+					return 1;
+				}
+
+			break;
+		case T_NSSET:
+			for (j = 0; j < index_free; j++)
+				if (objects[j].type == T_NSSET &&
+						strcmp(objects[j].obj.n.nsset, handle) == 0) {
+					return 1;
+				}
+
+			break;
+		case T_KEYSET:
+			for (j = 0; j < index_free; j++)
+				if (objects[j].type == T_KEYSET &&
+						strcmp(objects[j].obj.k.keyset, handle) == 0) {
+					return 1;
+				}
+
+			break;
+		case T_DOMAIN:
+			for (j = 0; j < index_free; j++)
+				if (objects[j].type == T_DOMAIN &&
+						strcmp(objects[j].obj.d.domain, handle) == 0) {
+					return 1;
+				}
+
+			break;
+	}
+	// j == index_free,  no duplicates found
+	return 0;
+}
+
+/**
+ * Search registrar by handle. Supress duplicities in array of objects.
  *
  * @param service    Whois CORBA object reference.
  * @param handle     Handle of registrar.
@@ -198,35 +256,37 @@ get_registrar_by_handle(service_Whois service, const char *handle,
 	}
 	CORBA_exception_free(ev);
 
-	/* copy registrar data */
-	objects[*index_free].type = T_REGISTRAR;
-	r = &objects[*index_free].obj.r;
-	r->registrar = NULL_STRDUP(c_registrar->handle);
-	r->org = NULL_STRDUP(c_registrar->organization);
-	r->url = NULL_STRDUP(c_registrar->url);
-	r->phone = NULL_STRDUP(c_registrar->telephone);
-	/* address is more complicated, it is composed from more items */
-	r->address = (char **) malloc(8 * sizeof (char *));
-	line = 0;
-#define COPY_ADDRESS_LINE(str) \
-	do{ if (*(str) != '\0') r->address[line++] = strdup(str); }while(0)
-	COPY_ADDRESS_LINE(c_registrar->street1);
-	COPY_ADDRESS_LINE(c_registrar->street2);
-	COPY_ADDRESS_LINE(c_registrar->street3);
-	COPY_ADDRESS_LINE(c_registrar->city);
-	COPY_ADDRESS_LINE(c_registrar->postalcode);
-	COPY_ADDRESS_LINE(c_registrar->stateorprovince);
-	COPY_ADDRESS_LINE(c_registrar->country);
-#undef COPY_ADDRESS_LINE
-	r->address[line] = NULL;
+	if(!check_duplicates(T_REGISTRAR, c_registrar->handle, objects, *index_free)) {
+		/* copy registrar data */
+		objects[*index_free].type = T_REGISTRAR;
+		r = &objects[*index_free].obj.r;
+		r->registrar = NULL_STRDUP(c_registrar->handle);
+		r->org = NULL_STRDUP(c_registrar->organization);
+		r->url = NULL_STRDUP(c_registrar->url);
+		r->phone = NULL_STRDUP(c_registrar->telephone);
+		/* address is more complicated, it is composed from more items */
+		r->address = (char **) malloc(8 * sizeof (char *));
+		line = 0;
+		#define COPY_ADDRESS_LINE(str) \
+		do{ if (*(str) != '\0') r->address[line++] = strdup(str); }while(0)
+		COPY_ADDRESS_LINE(c_registrar->street1);
+		COPY_ADDRESS_LINE(c_registrar->street2);
+		COPY_ADDRESS_LINE(c_registrar->street3);
+		COPY_ADDRESS_LINE(c_registrar->city);
+		COPY_ADDRESS_LINE(c_registrar->postalcode);
+		COPY_ADDRESS_LINE(c_registrar->stateorprovince);
+		COPY_ADDRESS_LINE(c_registrar->country);
+		#undef COPY_ADDRESS_LINE
+		r->address[line] = NULL;
+		(*index_free)++;
+	}
 
 	CORBA_free(c_registrar);
-	(*index_free)++;
 	return CORBA_OK;
 }
 
 /**
- * Search contact by handle.
+ * Search contact by handle. Supress duplicities in array of objects.
  *
  * @param service    Whois CORBA object reference.
  * @param handle     Handle of contact.
@@ -274,52 +334,56 @@ get_contact_by_handle(service_Whois service, const char *handle,
 	}
 	CORBA_exception_free(ev);
 
-	/* copy contact data according to disclose flags */
-	objects[*index_free].type = T_CONTACT;
-	c = &objects[*index_free].obj.c;
-	c->contact = NULL_STRDUP(c_contact->handle);
-	if (c_contact->discloseOrganization)
-		c->org = NULL_STRDUP(c_contact->organization);
-	else
-		c->org = NULL;
-	if (c_contact->discloseName)
-		c->name = NULL_STRDUP(c_contact->name);
-	else
-		c->name = NULL;
-	if (c_contact->discloseTelephone)
-		c->phone = NULL_STRDUP(c_contact->telephone);
-	else
-		c->phone = NULL;
-	if (c_contact->discloseFax)
-		c->fax_no = NULL_STRDUP(c_contact->fax);
-	else
-		c->fax_no = NULL;
-	if (c_contact->discloseEmail)
-		c->e_mail = NULL_STRDUP(c_contact->email);
-	else
-		c->e_mail = NULL;
-	c->registrar = NULL_STRDUP(c_contact->registrarHandle);
-	c->created = NULL_STRDUP(c_contact->createDate);
-	c->changed = NULL_STRDUP(c_contact->updateDate);
-	/* address is more complicated, it is composed from more items */
-	c->address = (char **) malloc(8 * sizeof (char *));
-	line = 0;
-	if (c_contact->discloseAddress) {
-#define COPY_ADDRESS_LINE(str) \
-	do{ if (*(str) != '\0') c->address[line++] = strdup(str); }while(0)
-		COPY_ADDRESS_LINE(c_contact->street1);
-		COPY_ADDRESS_LINE(c_contact->street2);
-		COPY_ADDRESS_LINE(c_contact->street3);
-		COPY_ADDRESS_LINE(c_contact->city);
-		COPY_ADDRESS_LINE(c_contact->postalcode);
-		COPY_ADDRESS_LINE(c_contact->province);
-		COPY_ADDRESS_LINE(c_contact->country);
-#undef COPY_ADDRESS_LINE
+	if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free)) {
+
+		/* copy contact data according to disclose flags */
+		objects[*index_free].type = T_CONTACT;
+		c = &objects[*index_free].obj.c;
+		c->contact = NULL_STRDUP(c_contact->handle);
+		if (c_contact->discloseOrganization)
+			c->org = NULL_STRDUP(c_contact->organization);
+		else
+			c->org = NULL;
+		if (c_contact->discloseName)
+			c->name = NULL_STRDUP(c_contact->name);
+		else
+			c->name = NULL;
+		if (c_contact->discloseTelephone)
+			c->phone = NULL_STRDUP(c_contact->telephone);
+		else
+			c->phone = NULL;
+		if (c_contact->discloseFax)
+			c->fax_no = NULL_STRDUP(c_contact->fax);
+		else
+			c->fax_no = NULL;
+		if (c_contact->discloseEmail)
+			c->e_mail = NULL_STRDUP(c_contact->email);
+		else
+			c->e_mail = NULL;
+		c->registrar = NULL_STRDUP(c_contact->registrarHandle);
+		c->created = NULL_STRDUP(c_contact->createDate);
+		c->changed = NULL_STRDUP(c_contact->updateDate);
+		/* address is more complicated, it is composed from more items */
+		c->address = (char **) malloc(8 * sizeof (char *));
+		line = 0;
+		if (c_contact->discloseAddress) {
+	#define COPY_ADDRESS_LINE(str) \
+		do{ if (*(str) != '\0') c->address[line++] = strdup(str); }while(0)
+			COPY_ADDRESS_LINE(c_contact->street1);
+			COPY_ADDRESS_LINE(c_contact->street2);
+			COPY_ADDRESS_LINE(c_contact->street3);
+			COPY_ADDRESS_LINE(c_contact->city);
+			COPY_ADDRESS_LINE(c_contact->postalcode);
+			COPY_ADDRESS_LINE(c_contact->province);
+			COPY_ADDRESS_LINE(c_contact->country);
+	#undef COPY_ADDRESS_LINE
+		}
+		c->address[line] = NULL;
+
+		(*index_free)++;
 	}
-	c->address[line] = NULL;
 
 	CORBA_free(c_contact);
-	(*index_free)++;
 
 	return CORBA_OK;
 }
@@ -418,7 +482,7 @@ static int
 recurse_nsset(service_Whois service, int rec, obj_nsset *n,
 		general_object *objects, int *index_free, char *errmsg)
 {
-	int	 i, j, ret;
+	int	 i, ret;
 
 	if (*index_free >= MAX_OBJECT_COUNT)
 		return CORBA_OK_LIMIT;
@@ -427,14 +491,6 @@ recurse_nsset(service_Whois service, int rec, obj_nsset *n,
 
 	/* recursion on tech_c */
 	for (i = 0; n->tech_c[i] != NULL; i++) {
-		/* detect duplicates */
-		for (j = 0; j < *index_free; j++)
-			if (objects[j].type == T_CONTACT &&
-					strcmp(objects[j].obj.c.contact, n->tech_c[i]) == 0)
-				break;
-		if (j < *index_free)
-			continue;
-
 		ret = get_contact_by_handle(service, n->tech_c[i],
 				objects, index_free, errmsg);
 		if (ret != CORBA_OK) return ret;
@@ -458,7 +514,7 @@ static int
 recurse_keyset(service_Whois service, int rec, obj_keyset *n,
 		general_object *objects, int *index_free, char *errmsg)
 {
-	int	 i, j, ret;
+	int	 i, ret;
 
 	if (*index_free >= MAX_OBJECT_COUNT)
 		return CORBA_OK_LIMIT;
@@ -467,14 +523,6 @@ recurse_keyset(service_Whois service, int rec, obj_keyset *n,
 
 	/* recursion on tech_c */
 	for (i = 0; n->tech_c[i] != NULL; i++) {
-		/* detect duplicates */
-		for (j = 0; j < *index_free; j++)
-			if (objects[j].type == T_CONTACT &&
-					strcmp(objects[j].obj.c.contact, n->tech_c[i]) == 0)
-				break;
-		if (j < *index_free)
-			continue;
-
 		ret = get_contact_by_handle(service, n->tech_c[i],
 				objects, index_free, errmsg);
 		if (ret != CORBA_OK) return ret;
@@ -484,7 +532,7 @@ recurse_keyset(service_Whois service, int rec, obj_keyset *n,
 }
 
 /**
- * Search nsset by handle and dependent objects if recursion is switched on.
+ * Search nsset by handle and dependent objects if recursion is switched on. Supress duplicities in array of objects.
  *
  * @param service    Whois CORBA object reference.
  * @param handle     Handle of nsset.
@@ -531,15 +579,20 @@ get_nsset_by_handle(service_Whois service, const char *handle, int rec,
 	}
 	CORBA_exception_free(ev);
 
-	copy_nsset(&objects[(*index_free)++], c_nsset);
-	CORBA_free(c_nsset);
+	if(!check_duplicates(T_NSSET, c_nsset->handle, objects, *index_free)) {
+		copy_nsset(&objects[(*index_free)++], c_nsset);
+		CORBA_free(c_nsset);
 
-	return recurse_nsset(service, rec, &objects[*index_free - 1].obj.n,
+		return recurse_nsset(service, rec, &objects[*index_free - 1].obj.n,
 			objects, index_free, errmsg);
+	} else {
+		CORBA_free(c_nsset);
+		return CORBA_OK;
+	}
 }
 
 /**
- * Search keyset by handle and dependent objects if recursion is switched on.
+ * Search keyset by handle and dependent objects if recursion is switched on. Supress duplicities in array of objects.
  *
  * @param service    Whois CORBA object reference.
  * @param handle     Handle of keyset.
@@ -586,11 +639,18 @@ get_keyset_by_handle(service_Whois service, const char *handle, int rec,
 	}
 	CORBA_exception_free(ev);
 
-	copy_keyset(&objects[(*index_free)++], c_keyset);
-	CORBA_free(c_keyset);
-
-	return recurse_keyset(service, rec, &objects[*index_free - 1].obj.k,
+	if(!check_duplicates(T_KEYSET, c_keyset->handle, objects, *index_free)) {
+		copy_keyset(&objects[(*index_free)++], c_keyset);
+		CORBA_free(c_keyset);
+		return recurse_keyset(service, rec, &objects[*index_free - 1].obj.k,
 			objects, index_free, errmsg);
+
+	} else {
+
+		CORBA_free(c_keyset);
+		return CORBA_OK;
+	}
+
 }
 
 
@@ -852,7 +912,7 @@ static int
 recurse_domain(service_Whois service, int rec, obj_domain *d,
 		general_object *objects, int *index_free, char *errmsg)
 {
-	int	 i, j, ret;
+	int	 i, ret;
 
 	if (*index_free >= MAX_OBJECT_COUNT)
 		return CORBA_OK_LIMIT;
@@ -861,16 +921,9 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 
 	/* recursion on registrant */
 	if (d->registrant != NULL) {
-		/* detect duplicates */
-		for (j = 0; j < *index_free; j++)
-			if (objects[j].type == T_CONTACT &&
-					strcmp(objects[j].obj.c.contact, d->registrant) == 0)
-				break;
-		if (j == *index_free) {
-			ret = get_contact_by_handle(service, d->registrant,
-					objects, index_free, errmsg);
-			if (ret != CORBA_OK) return ret;
-		}
+		ret = get_contact_by_handle(service, d->registrant,
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK) return ret;
 	}
 	
 	if (*index_free >= MAX_OBJECT_COUNT)
@@ -878,14 +931,6 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 
 	/* recursion on admin_c */
 	for (i = 0; d->admin_c[i] != NULL; i++) {
-		/* detect duplicates */
-		for (j = 0; j < *index_free; j++)
-			if (objects[j].type == T_CONTACT &&
-					strcmp(objects[j].obj.c.contact, d->admin_c[i]) == 0)
-				break;
-		if (j < *index_free)
-			continue;
-
 		ret = get_contact_by_handle(service, d->admin_c[i],
 				objects, index_free, errmsg);
 		if (ret != CORBA_OK) return ret;
@@ -896,14 +941,6 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 
 	/* recursion on temp_c */
 	for (i = 0; d->temp_c[i] != NULL; i++) {
-		/* detect duplicates */
-		for (j = 0; j < *index_free; j++)
-			if (objects[j].type == T_CONTACT &&
-					strcmp(objects[j].obj.c.contact, d->temp_c[i]) == 0)
-				break;
-		if (j < *index_free)
-			continue;
-
 		ret = get_contact_by_handle(service, d->temp_c[i],
 				objects, index_free, errmsg);
 		if (ret != CORBA_OK) return ret;
@@ -914,37 +951,23 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 
 	/* recursion on nsset */
 	if (d->nsset != NULL) {
-		/* detect duplicates */
-		for (j = 0; j < *index_free; j++)
-			if (objects[j].type == T_NSSET &&
-					strcmp(objects[j].obj.n.nsset, d->nsset) == 0)
-				break;
-		if (j == *index_free) {
-			ret = get_nsset_by_handle(service, d->nsset, rec,
-					objects, index_free, errmsg);
-			if (ret != CORBA_OK) return ret;
-		}
+		ret = get_nsset_by_handle(service, d->nsset, rec,
+				objects, index_free, errmsg);
+		if (ret != CORBA_OK) return ret;
 	}
 
 	/* recursion on keyset */
 	if (d->keyset != NULL) {
-		/* detect duplicates */
-		for (j=0; j < *index_free; j++) 
-			if (objects[j].type == T_KEYSET && 
-					strcmp(objects[j].obj.k.keyset, d->keyset) == 0)
-				break;
-		if (j == *index_free) {
-			ret = get_keyset_by_handle(service, d->keyset, rec,
-					objects, index_free, errmsg);
-			if(ret != CORBA_OK) return ret;
-		}
+		ret = get_keyset_by_handle(service, d->keyset, rec,
+				objects, index_free, errmsg);
+		if(ret != CORBA_OK) return ret;
 	}
 
 	return CORBA_OK;
 }
 
 /**
- * Search domain by fqdn and dependent objects if recursion is switched on.
+ * Search domain by fqdn and dependent objects if recursion is switched on. Supress duplicates in array of objects
  *
  * @param service    Whois CORBA object reference.
  * @param handle     Fqdn of domain.
@@ -991,13 +1014,19 @@ get_domain_by_handle(service_Whois service, const char *handle, int rec,
 	}
 	CORBA_exception_free(ev);
 
-	copy_domain(&objects[*index_free], c_domain);
-	(*index_free)++;
-
-	CORBA_free(c_domain);
-
-	return recurse_domain(service, rec, &objects[*index_free - 1].obj.d,
+	if(!check_duplicates(T_DOMAIN, c_domain->fqdn, objects, *index_free)) {
+		copy_domain(&objects[*index_free], c_domain);
+		(*index_free)++;
+		CORBA_free(c_domain);
+		return recurse_domain(service, rec, &objects[*index_free - 1].obj.d,
 			objects, index_free, errmsg);
+
+	} else {
+
+		CORBA_free(c_domain);
+		return CORBA_OK;
+	}
+
 }
 
 /**
@@ -1063,7 +1092,6 @@ get_domain_by_attr(service_Whois service,
 	}
 
 	CORBA_free(c_domains);
-
 	return ret;
 }
 

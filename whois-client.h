@@ -198,4 +198,6 @@ whois_corba_call(service_Whois service,
  */
 void whois_release_data(general_object *object_list);
 
+int check_duplicates(int type, char *handle, general_object *objects, int index_free);
+
 #endif /* WHOIS_CLIENT_H */
