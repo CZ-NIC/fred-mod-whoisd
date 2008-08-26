@@ -46,6 +46,7 @@ import unittest
 MAX_REQLEN = 1000
 BUFFSIZE   = 64000
 TESTDOMAIN = 'domain.cz'
+WHOIS_PORT = 22352
 
 def usage():
 	print '%s [-v LEVEL | --verbose=LEVEL]' % sys.argv[0]
@@ -85,6 +86,8 @@ class Answer(object):
 						self.objects.append(Domain(obj_lines))
 					elif obj_class == Nsset:
 						self.objects.append(Nsset(obj_lines))
+					elif obj_class == Keyset:
+						self.objects.append(Keyset(obj_lines))
 					elif obj_class == Contact:
 						self.objects.append(Contact(obj_lines))
 					elif obj_class == Registrar:
@@ -99,6 +102,8 @@ class Answer(object):
 						obj_class = Domain
 					elif line.startswith('nsset'):
 						obj_class = Nsset
+					elif line.startswith('keyset'):
+						obj_class = Keyset
 					elif line.startswith('contact'):
 						obj_class = Contact
 					elif line.startswith('registrar'):
@@ -154,6 +159,7 @@ class Domain(object):
 		self.admin_c = getval('admin-c', '\S+', str, mustbe=False, list=True)
 		self.temp_c = getval('temp-c', '\S+', str, mustbe=False, list=True)
 		self.nsset = getval('nsset', '\S+', str, mustbe=False)
+		self.keyset = getval('keyset', '\S+', str, mustbe=False)
 		self.registrar = getval('registrar', '\S+', str)
 		self.status = getval('status', '.+', str, mustbe=False, list=True)
 		self.registered = gettimeval('registered', str)
@@ -169,6 +175,16 @@ class Nsset(object):
 		self.registrar = getval('registrar', '\S+', str)
 		self.created = gettimeval('created', str)
 		self.changed = gettimeval('changed', str, mustbe=False)
+
+class Keyset(object):
+	def __init__(self, str):
+		self.keyset = getval('keyset', '\S+', str)
+		self.delsigner = getval('delsigner', '.+', str, list=True) 
+		self.tech_c = getval('tech-c', '\S+', str, list=True)
+		self.registrar = getval('registrar', '\S+', str)
+		self.created = gettimeval('created', str)
+		self.changed = gettimeval('changed', str, mustbe=False)
+
 
 class Contact(object):
 	def __init__(self, str):
@@ -187,7 +203,8 @@ class Registrar(object):
 	def __init__(self, str):
 		self.registrar = getval('registrar', '\S+', str)
 		self.org = getval('org', '.+', str)
-		self.url = getval('url', 'http://\S+', str)
+		#self.url = getval('url', 'http://\S+', str)
+		self.url = getval('url', '\S+', str)
 		self.phone = getval('phone', '.+', str, mustbe=False)
 		self.address = getval('address', '.+', str, list=True)
 
@@ -202,7 +219,7 @@ class NotObjectSpecificTests(unittest.TestCase):
 		Connect to whois server.
 		'''
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect(('localhost', 43))
+		self.s.connect(('localhost', WHOIS_PORT))
 
 	def tearDown(self):
 		self.s.close()
@@ -231,7 +248,7 @@ class NotObjectSpecificTests(unittest.TestCase):
 		'''
 		Send invalid char in domain name.
 		'''
-		self.s.send('domeína.cz' + '\\r\n')
+		self.s.send('domena.cz' + '\\r\n')
 		rawans = self.s.recv(BUFFSIZE)
 		ans = Answer(rawans)
 		self.assertEqual(ans.error, 108, 'Invalid char in request not '
@@ -310,7 +327,7 @@ class ObjectSpecificTests(unittest.TestCase):
 		Connect to whois server.
 		'''
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect(('localhost', 43))
+		self.s.connect(('localhost', WHOIS_PORT))
 		self.s.send(TESTDOMAIN + '\r\n')
 		rawans = self.s.recv(BUFFSIZE)
 		ans = Answer(rawans)
@@ -319,9 +336,14 @@ class ObjectSpecificTests(unittest.TestCase):
 		for obj in ans.objects:
 			if isinstance(obj, Nsset):
 				self.nsset = obj
+		# find keyset 
+		for obj in ans.objects:
+			if isinstance(obj, Keyset):
+				self.keyset = obj
+
 		self.s.close()
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect(('localhost', 43))
+		self.s.connect(('localhost', WHOIS_PORT))
 
 	def tearDown(self):
 		self.s.close()
@@ -356,6 +378,21 @@ class ObjectSpecificTests(unittest.TestCase):
 		rawans = self.s.recv(BUFFSIZE)
 		ans = Answer(rawans)
 		self.assertEqual(ans.error, 101, 'type nsset not working\n%s\n%s' %
+				(rawans, ans))
+	def test_typeKeysetPos(self):
+		# positive case
+		self.s.send('-r keyset ' + self.domain.keyset + '\r\n')
+		rawans = self.s.recv(BUFFSIZE)
+		ans = Answer(rawans)
+		self.assertEqual(len(ans.objects), 1,'type keyset not working\n%s\n%s'%
+				(rawans, ans))
+
+	def test_typeKeysetNeg(self):
+		# negative case
+		self.s.send('-r keyset ' + self.domain.domain + '\r\n')
+		rawans = self.s.recv(BUFFSIZE)
+		ans = Answer(rawans)
+		self.assertEqual(ans.error, 101, 'type keyset not working\n%s\n%s' %
 				(rawans, ans))
 
 	def test_typeContactPos(self):
@@ -426,6 +463,18 @@ class ObjectSpecificTests(unittest.TestCase):
 		self.assertEqual(found, True, 'inverse nsset not working\n%s\n%s' %
 				(rawans, ans))
 
+	def test_invKeyset(self):
+		self.s.send('-r -i keyset ' + self.domain.keyset + '\r\n')
+		rawans = self.s.recv(BUFFSIZE)
+		ans = Answer(rawans)
+		found = False
+		for obj in ans.objects:
+			if obj.domain == self.domain.domain:
+				found = True
+				break
+		self.assertEqual(found, True, 'inverse keyset not working\n%s\n%s' %
+				(rawans, ans))
+
 	def test_invNserver(self):
 		self.s.send('-r -i nserver ' + self.nsset.nserver[0] + '\r\n')
 		rawans = self.s.recv(BUFFSIZE)
@@ -439,7 +488,7 @@ class ObjectSpecificTests(unittest.TestCase):
 				(rawans, ans))
 
 	def test_invTech_c(self):
-		self.s.send('-r -i tech-c ' + self.nsset.tech_c[0] + '\r\n')
+		self.s.send('-r -T nsset -i tech-c ' + self.nsset.tech_c[0] + '\r\n')
 		rawans = self.s.recv(BUFFSIZE)
 		ans = Answer(rawans)
 		found = False
@@ -447,8 +496,21 @@ class ObjectSpecificTests(unittest.TestCase):
 			if obj.nsset == self.nsset.nsset:
 				found = True
 				break
-		self.assertEqual(found, True, 'inverse tech-c not working\n%s\n%s' %
+		self.assertEqual(found, True, 'inverse tech-c for nsset not working\n%s\n%s' %
 				(rawans, ans))
+
+	def test_invTech_c_Keyset(self):
+		self.s.send('-r -T keyset -i tech-c ' + self.keyset.tech_c[0] + '\r\n')
+		rawans = self.s.recv(BUFFSIZE)
+		ans = Answer(rawans)
+		found = False
+		for obj in ans.objects:
+			if obj.keyset == self.keyset.keyset:
+				found = True
+				break
+		self.assertEqual(found, True, 'inverse tech-c for keyset not working\n%s\n%s' %
+				(rawans, ans))
+
 
 
 if __name__ == '__main__':
