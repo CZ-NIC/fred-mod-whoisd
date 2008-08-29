@@ -46,6 +46,7 @@ import unittest
 MAX_REQLEN = 1000
 BUFFSIZE   = 64000
 TESTDOMAIN = 'domain.cz'
+WHOIS_HOST = 'localhost'
 WHOIS_PORT = 22352
 
 def usage():
@@ -219,7 +220,7 @@ class NotObjectSpecificTests(unittest.TestCase):
 		Connect to whois server.
 		'''
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect(('localhost', WHOIS_PORT))
+		self.s.connect((WHOIS_HOST, WHOIS_PORT))
 
 	def tearDown(self):
 		self.s.close()
@@ -327,7 +328,7 @@ class ObjectSpecificTests(unittest.TestCase):
 		Connect to whois server.
 		'''
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect(('localhost', WHOIS_PORT))
+		self.s.connect((WHOIS_HOST, WHOIS_PORT))
 		self.s.send(TESTDOMAIN + '\r\n')
 		rawans = self.s.recv(BUFFSIZE)
 		ans = Answer(rawans)
@@ -343,7 +344,7 @@ class ObjectSpecificTests(unittest.TestCase):
 
 		self.s.close()
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.connect(('localhost', WHOIS_PORT))
+		self.s.connect((WHOIS_HOST, WHOIS_PORT))
 
 	def tearDown(self):
 		self.s.close()
