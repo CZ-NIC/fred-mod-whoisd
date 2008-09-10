@@ -1,4 +1,4 @@
-/*  
+/*
  *  Copyright (C) 2007  CZ.NIC, z.s.p.o.
  *
  *  This file is part of FRED.
@@ -402,11 +402,11 @@ static void print_nsset_object(apr_bucket_brigade *bb, obj_nsset *n)
 #undef SAFE_PRINTF
 }
 
-/** 
+/**
  * Function returns a name for the given type number (see RFC 4034 for details)
  * or "unknown" if the type is unknown
  *
- * @param type	Algorithm type 
+ * @param type	Algorithm type
  *
  */
 char *ds_get_algorithm_type(int type)
@@ -424,18 +424,18 @@ char *ds_get_algorithm_type(int type)
    254   Private [PRIVATEOID]*
 */
 
-	switch(type) { 
+	switch(type) {
 		case 1:
 			return "RSA/MD5";
 		case 2:
 			return "Diffie-Hellman";
 		case 3:
-			return "DSA/SHA-1";        
+			return "DSA/SHA-1";
 		case 4:
-			return "Elliptic Curve";  
+			return "Elliptic Curve";
 		case 5:
-			return "RSA/SHA-1";  
-		default: 
+			return "RSA/SHA-1";
+		default:
 			return "unknown";
 	}
 }
@@ -456,21 +456,23 @@ static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
 	SAFE_PRINTF("keyset:       %s\n", n->keyset);
 
 	for (i = 0; n->digest[i] != NULL; i++) {
-		apr_brigade_printf(bb, NULL, NULL, "delsigner:    keytag=%i", n->key_tag[i]);
+		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", n->key_tag[i]);
 
-		apr_brigade_printf(bb, NULL, NULL, ", alg=%i", n->alg[i]);
-		apr_brigade_printf(bb, NULL, NULL, " (%s)", ds_get_algorithm_type(n->alg[i]));
+		apr_brigade_printf(bb, NULL, NULL, ", %i", n->alg[i]);
+		// apr_brigade_printf(bb, NULL, NULL, " (%s)", ds_get_algorithm_type(n->alg[i]));
 
 		// the only type of digest type allowed
-		apr_brigade_printf(bb, NULL, NULL, ", digest_type=%i", n->digest_type[i]);
+		apr_brigade_printf(bb, NULL, NULL, ", %i", n->digest_type[i]);
+		/*
 		if(n->digest_type[i] == 1) {
 			apr_brigade_puts(bb, NULL, NULL, " (SHA-1)");
 		} else {
 			apr_brigade_puts(bb, NULL, NULL, " (unknown)");
 		}
+		*/
 
-		SAFE_PRINTF(", digest=%s", n->digest[i]);
-		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, ", max_sig_life=%i", n->max_sig_life[i]);
+		SAFE_PRINTF(", %s", n->digest[i]);
+		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, ", %i", n->max_sig_life[i]);
 
 		apr_brigade_puts(bb, NULL, NULL, "\n");
 	}
@@ -942,7 +944,7 @@ static int process_whois_connection(conn_rec *c)
 				else if (strncasecmp(optarg, "nsset",
 							MAXAXELEN) == 0)
 					wr->axe = SA_NSSET;
-				else if (strncasecmp(optarg, "keyset", 
+				else if (strncasecmp(optarg, "keyset",
 							MAXAXELEN) == 0)
 					wr->axe = SA_KEYSET;
 				else if (strncasecmp(optarg, "nserver",
@@ -1185,7 +1187,7 @@ static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
 	server_rec *s = cmd->server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
-	
+
 	err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE | NOT_IN_LIMIT);
 	if (err) return err;
 
