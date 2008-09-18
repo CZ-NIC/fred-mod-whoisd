@@ -458,21 +458,13 @@ static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
 	for (i = 0; n->digest[i] != NULL; i++) {
 		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", n->key_tag[i]);
 
-		apr_brigade_printf(bb, NULL, NULL, ", %i", n->alg[i]);
-		// apr_brigade_printf(bb, NULL, NULL, " (%s)", ds_get_algorithm_type(n->alg[i]));
+		apr_brigade_printf(bb, NULL, NULL, " %i", n->alg[i]);
 
-		// the only type of digest type allowed
-		apr_brigade_printf(bb, NULL, NULL, ", %i", n->digest_type[i]);
-		/*
-		if(n->digest_type[i] == 1) {
-			apr_brigade_puts(bb, NULL, NULL, " (SHA-1)");
-		} else {
-			apr_brigade_puts(bb, NULL, NULL, " (unknown)");
-		}
-		*/
+		apr_brigade_printf(bb, NULL, NULL, " %i", n->digest_type[i]);
 
-		SAFE_PRINTF(", %s", n->digest[i]);
-		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, ", %i", n->max_sig_life[i]);
+
+		SAFE_PRINTF(" %s", n->digest[i]);
+		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, " %i", n->max_sig_life[i]);
 
 		apr_brigade_puts(bb, NULL, NULL, "\n");
 	}
