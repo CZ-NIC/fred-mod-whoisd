@@ -1,3 +1,9 @@
+2008-09-19 Juraj Vicenik (version 3.0.1)
+	
+        * DS record detail updated
+
+	* testing support
+
 2008-08-15 Juraj Vicenik (version 3.0.0)
 
 	* DNSSEC keyset object support
