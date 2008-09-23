@@ -57,6 +57,8 @@
  */
 #define MAX_OBJECT_COUNT 100
 
+/** reference to the whois corba service 
+ */
 typedef void *service_Whois;
 
 #define T_NONE		0   /* Nothing. */
@@ -84,10 +86,10 @@ typedef enum {
  * Whois request structure.
  */
 typedef struct {
-	search_axis	axe;
-	int	 norecursion;
-	int	 type;
-	const char	*value;
+	search_axis	axe;	/**< which object type is used as search criteria */
+	int	 norecursion;   /**< if true, recursion is switched off */
+	int	 type;		/**< type of the objects we're looking for */
+	const char	*value; /**< value to search for */
 }whois_request;
 
 /** Structure holding domain data. */
@@ -157,7 +159,7 @@ typedef struct {
 	char	**address;     /**< Address information. */
 }obj_registrar;
 
-/** Structure able to hold any of the four types of whois objects. */
+/** Structure able to hold any of the five types of whois objects. */
 typedef struct {
 	int	 type;         /**< Object type number. */
 	union {
@@ -166,7 +168,7 @@ typedef struct {
 		obj_keyset	k;
 		obj_contact	c;
 		obj_registrar	r;
-	}obj;
+	}obj;			/**< Union that can represent any of the objects */
 }general_object;
 
 /**
@@ -188,13 +190,13 @@ whois_corba_call(service_Whois service,
 		char *errmsg);
 
 /**
- * Release content of whois_data_t structure.
+ * Release data.
  *
  * We don't want to mix apache pools with malloc and free routines within one
  * file, so we have to explicitly call this function in order to release whois
  * data returned from previous call. You must NOT pass NULL pointer as argument.
  *
- * @param wd Whois data to be freed.
+ * @param object_list Whois data to be freed.
  */
 void whois_release_data(general_object *object_list);
 

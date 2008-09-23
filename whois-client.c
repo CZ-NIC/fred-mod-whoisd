@@ -154,6 +154,7 @@ whois_corba_call(service_Whois service, const whois_request *wr,
  *
  * @param type       Which type of objects to look for.
  * @param handle     Handle of the object.
+ * @param objects    The structure for holding any type of object
  * @param index_free First free item in array of objects.
  * @return           0 if no duplicates are present, 1 otherwise.
  */
@@ -333,8 +334,7 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		return ret;
 	}
 	CORBA_exception_free(ev);
-
-	if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free)) {
+if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free)) {
 
 		/* copy contact data according to disclose flags */
 		objects[*index_free].type = T_CONTACT;
@@ -367,6 +367,8 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		c->address = (char **) malloc(8 * sizeof (char *));
 		line = 0;
 		if (c_contact->discloseAddress) {
+	/** Copy contact information from CORBA structure to the data type for whois response
+ 	*/
 	#define COPY_ADDRESS_LINE(str) \
 		do{ if (*(str) != '\0') c->address[line++] = strdup(str); }while(0)
 			COPY_ADDRESS_LINE(c_contact->street1);
@@ -423,7 +425,7 @@ copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
  * Copy corba representation of keyset object to our representation.
  *
  * @param obj         Field in object array which is destination of copy.
- * @param c_keyset     Nsset detail returned from CORBA.
+ * @param c_keyset    Keyset detail returned from CORBA.
  */
 static void
 copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
@@ -504,14 +506,14 @@ recurse_nsset(service_Whois service, int rec, obj_nsset *n,
  *
  * @param service     Whois corba object reference.
  * @param rec	      Switches recursion on/off
- * @param n           Nsset object on which is done recursion.
+ * @param k           Keyset object on which recursion is done.
  * @param objects     Array of results.
  * @param index_free  First free index in array of results.
  * @param errmsg      Buffer for error message.
  * @return            Status.
  */
 static int
-recurse_keyset(service_Whois service, int rec, obj_keyset *n,
+recurse_keyset(service_Whois service, int rec, obj_keyset *k,
 		general_object *objects, int *index_free, char *errmsg)
 {
 	int	 i, ret;
@@ -522,8 +524,8 @@ recurse_keyset(service_Whois service, int rec, obj_keyset *n,
 		return CORBA_OK;
 
 	/* recursion on tech_c */
-	for (i = 0; n->tech_c[i] != NULL; i++) {
-		ret = get_contact_by_handle(service, n->tech_c[i],
+	for (i = 0; k->tech_c[i] != NULL; i++) {
+		ret = get_contact_by_handle(service, k->tech_c[i],
 				objects, index_free, errmsg);
 		if (ret != CORBA_OK) return ret;
 	}
@@ -902,7 +904,8 @@ copy_domain(general_object *obj, ccReg_DomainDetail *c_domain)
  * The function does recursion on domain.
  *
  * @param service     Whois corba object reference.
- * @param d           Domain object on which is done recursion.
+ * @param rec         Recursive lookup is performed if true.
+ * @param d           Domain object on which recursion is done.
  * @param objects     Array of results.
  * @param index_free  First free index in array of results.
  * @param errmsg      Buffer for error message.
@@ -1095,6 +1098,16 @@ get_domain_by_attr(service_Whois service,
 	return ret;
 }
 
+/** Call the right function for the specific object type / search axis / handle
+ * combination
+ *
+ * @param service    Whois CORBA object reference.
+ * @param wr         Whois request.
+ * @param objects    Array of resulting objects.
+ * @param timebuf    Timestamp.
+ * @param errmsg 	
+ * @return           Status.
+ */
 int
 whois_corba_call(service_Whois service, const whois_request *wr,
 		general_object *objects, char *timebuf, char *errmsg)
@@ -1194,6 +1207,9 @@ search_end:
 	return ret;
 }
 
+/** Release data of any of the objects
+ * @param objects 	Object to release
+ */
 void
 whois_release_data(general_object *objects)
 {

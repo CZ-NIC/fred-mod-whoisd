@@ -102,9 +102,12 @@ typedef struct {
 	ap_log_error(mark, level, status, (c)->base_server, __VA_ARGS__)
 #endif
 
-
+/** checks if there is any kind of search set in the query 
+ */
 #define IS_SEARCH_SET(wr)   ((wr)->axe || (wr)->norecursion || (wr)->type)
 
+/** Error message in case of incorrect usage 
+ */
 static const char *usagestr = \
 "% Usage:   whois [options] [[type] value]\n\
 % \n\
@@ -137,6 +140,9 @@ static const char *usagestr = \
 % http://www.nic.cz/whois/manual\n\
 ";
 
+/**  List of attributes which can be used in search, this 
+ * is displayed with -q indexes
+ */
 static const char *indexlist = \
 "% The folowing object types can be looked up in whois database:\n\
 %    domain, nsset, keyset, contact, registrar.\n\
@@ -158,6 +164,8 @@ static const char *indexlist = \
 % keyset:tech-c\n\
 ";
 
+/** List of templates for all five object types.
+ */
 static const char *templatelist = \
 "% Object type templates are listed in following order:\n\
 %     domain, nsset, keyset, contact, registrar.\n\
@@ -183,7 +191,7 @@ created:      [mandatory]  [single]\n\
 changed:      [optional]   [single]\n\
 \n\
 keyset:	      [mandatory]  [single]\n\
-delsigner:    [mandatory]  [multiple]\n\
+ds:    	      [mandatory]  [multiple]\n\
 tech-c:       [mandatory]  [multiple]\n\
 registrar:    [mandatory]  [single]\n\
 created:      [mandatory]  [single]\n\
@@ -207,6 +215,8 @@ phone:        [optional]   [single]\n\
 address:      [mandatory]  [multiple]\n\
 ";
 
+/** Print whois disclaimer into the bucket brigade
+ */
 static void print_intro(apr_bucket_brigade *bb, conn_rec *c,
 		const char *disclaimer, const char *timestamp)
 {
@@ -402,27 +412,24 @@ static void print_nsset_object(apr_bucket_brigade *bb, obj_nsset *n)
 #undef SAFE_PRINTF
 }
 
-/**
+/*
  * Function returns a name for the given type number (see RFC 4034 for details)
  * or "unknown" if the type is unknown
  *
  * @param type	Algorithm type
  *
- */
 char *ds_get_algorithm_type(int type)
 {
-/**
- * 	Algorithm types for DS record (RFC 4034)
-     0	 reserved
-     1   RSA/MD5 [RSAMD5]         n      [RFC 2537]  NOT RECOMMENDED
-     2   Diffie-Hellman [DH]      n      [RFC 2539]   -
-     3   DSA/SHA-1 [DSA]          y      [RFC 2536]  OPTIONAL
-     4   Elliptic Curve [ECC]              TBA       -
-     5   RSA/SHA-1 [RSASHA1]      y      [RFC 3110]  MANDATORY
-   252   Indirect [INDIRECT]      n                  -
-   253   Private [PRIVATEDNS]     y      see below  OPTIONAL
-   254   Private [PRIVATEOID]*
-*/
+//  	Algorithm types for DS record (RFC 4034)
+//     0	 reserved
+//     1   RSA/MD5 [RSAMD5]         n      [RFC 2537]  NOT RECOMMENDED
+//     2   Diffie-Hellman [DH]      n      [RFC 2539]   -
+//     3   DSA/SHA-1 [DSA]          y      [RFC 2536]  OPTIONAL
+//     4   Elliptic Curve [ECC]              TBA       -
+//     5   RSA/SHA-1 [RSASHA1]      y      [RFC 3110]  MANDATORY
+//   252   Indirect [INDIRECT]      n                  -
+//   253   Private [PRIVATEDNS]     y      see below  OPTIONAL
+//   254   Private [PRIVATEOID]*
 
 	switch(type) {
 		case 1:
@@ -439,6 +446,7 @@ char *ds_get_algorithm_type(int type)
 			return "unknown";
 	}
 }
+ */
 
 /**
  * Function prints keyset information to bucket brigade.
@@ -545,6 +553,7 @@ static void print_registrar_object(apr_bucket_brigade *bb, obj_registrar *r)
  *
  * @param c   Connection.
  * @param sc  Server configuration.
+ * @param wr  Whois request data
  * @return    Result of processing.
  */
 static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
@@ -697,9 +706,9 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 /**
  * This will read whois request (one line of text).
  *
- * @param c     Connection structure.
- * @param len   Length of request.
- * @return      The string which was read, NULL in case of error.
+ * @param c     	Connection structure.
+ * @param http_status   HTTP error code.
+ * @return      	The string which was read, NULL in case of error.
  */
 static char *read_request(conn_rec *c, int *http_status)
 {
