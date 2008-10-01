@@ -119,17 +119,31 @@ typedef struct {
 	char	 *changed;     /**< Last update of nsset. */
 }obj_nsset;
 
+/** Delegation signer record (part of keyset object) */
+typedef struct {
+	int	key_tag;	/**< Key tag for DNSKEY RR (RFC 4043 for details) */
+	int	alg;		/**< Algorithm type */ 
+	int 	digest_type;	/**< Digest type (must be SHA-1) */
+	char   *digest;		/**< Digests in Delegation Signer records */
+	int	max_sig_life;	/**< Signature expiration period */	
+} keyset_dsrecord;
+
+/** DNSKey record (part of keyset object) */
+typedef struct {
+	int 	flags;		/**< key properties. supported values are 0, 256, 257 */
+	int 	protocol; 	/**< = 3 */
+	int 	alg;		/**< algorithm type */
+	char   *public_key;	/**< base64 encoded public key */
+} keyset_dnskey;
+
 /** Structure holding keyset data */
 typedef struct {
 	char 	*keyset;	/**< Handle of keyset. */
 	
 	char   **tech_c;	/**< Handles of technical contacts. */
 
-	int	*key_tag;	/**< Key tag for DNSKEY RR (RFC 4043 for details) */
-	int	*alg;		/**< Algorithm type */ 
-	int 	*digest_type;	/**< Digest type (must be SHA-1) */
-	char   **digest;	/**< Digests in Delegation Signer records */
-	int	*max_sig_life;	/**< Signature expiration period */	
+	keyset_dsrecord *ds;	/**< Delegation signer records */
+	keyset_dnskey   *keys;  /**< DNS Keys */
 	
 	char 	*registrar;	/**< Handle of registrar. */
 	char 	*created;	/**< Date of keyset creation. */

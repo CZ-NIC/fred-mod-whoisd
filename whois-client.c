@@ -431,6 +431,8 @@ static void
 copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 {
 	obj_keyset *k;
+	keyset_dsrecord *ds;
+	keyset_dnskey *key;
 	int	 i, len;
 
 	/* copy keyset data */
@@ -443,24 +445,33 @@ copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 
 	len = c_keyset->dsrecords._length + 1;
 
-	k->key_tag = (int *) malloc(len * sizeof(int));
-	k->digest = (char **) malloc(len * sizeof (char *));
-	k->alg = (int *) malloc(len * sizeof(int));
-	k->digest_type = (int *) malloc(len * sizeof(int));
-	k->max_sig_life = (int *) malloc(len * sizeof(int));
-	
-	for (i = 0; i < (len - 1); i++) {
-		k->key_tag[i] = c_keyset->dsrecords._buffer[i].keyTag; 
-		k->digest[i] = strdup(c_keyset->dsrecords._buffer[i].digest); 
-		k->alg[i] = c_keyset->dsrecords._buffer[i].alg; 
-		k->digest_type[i] = c_keyset->dsrecords._buffer[i].digestType; 
-		k->max_sig_life[i] = c_keyset->dsrecords._buffer[i].maxSigLife; 
+	ds = k->ds = (keyset_dsrecord*)malloc(len * sizeof(keyset_dsrecord));
+
+	for (i = 0; i < (len - 1); i++, ds++) {
+		ds->key_tag = c_keyset->dsrecords._buffer[i].keyTag; 
+		ds->digest = strdup(c_keyset->dsrecords._buffer[i].digest); 
+		ds->alg = c_keyset->dsrecords._buffer[i].alg; 
+		ds->digest_type = c_keyset->dsrecords._buffer[i].digestType; 
+		ds->max_sig_life = c_keyset->dsrecords._buffer[i].maxSigLife; 
 	}
-	k->key_tag[i] = -1;		
-	k->digest[i] = NULL;
-	k->alg[i] = -1;
-	k->digest_type[i] = -1;
-	k->max_sig_life[i] = -1;
+	ds->key_tag = -1;		
+	ds->digest = NULL;
+	ds->alg = -1;
+	ds->digest_type = -1;
+	ds->max_sig_life = -1;
+
+	key = k->key = (keyset_dnskey*)malloc(len * sizeof(keyset_dnskey));
+
+	for (i = 0; i < (len - 1); i++, key++) {
+		key->flags = c_keyset->dnskey._buffer[i].flags;
+		key->protocol = c_keyset->dnskey._buffer[i].protocol;
+		key->alg = c_keyset->dnskey._buffer[i].alg;
+		key->private_key = strdup(c_keyset->dnskey._buffer[i].public_key);
+	}
+	key->private_key = NULL;
+	key->flags = -1;
+	key->protocol = -1;
+	key->alg = -1;
 
 	k->tech_c = (char **)
 		malloc((c_keyset->admins._length + 1) * sizeof (char *));
