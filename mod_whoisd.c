@@ -192,7 +192,6 @@ changed:      [optional]   [single]\n\
 \n\
 keyset:	      [mandatory]  [single]\n\
 ds:    	      [mandatory]  [multiple]\n\
-key:	      [mandatory]  [multiple]\n\
 tech-c:       [mandatory]  [multiple]\n\
 registrar:    [mandatory]  [single]\n\
 created:      [mandatory]  [single]\n\
@@ -457,37 +456,25 @@ char *ds_get_algorithm_type(int type)
  */
 static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
 {
-	int i;
-	keyset_dsrecord *ds;
-	keyset_dnskey	*key;
+	int	i;
 
 #define SAFE_PRINTF(fmt, str) \
 	if (str != NULL) apr_brigade_printf(bb, NULL, NULL, fmt, str);
 
 	SAFE_PRINTF("keyset:       %s\n", n->keyset);
 
-	for (ds = n->ds; ds->digest != NULL; ds++) {
-		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", ds->key_tag);
+	for (i = 0; n->digest[i] != NULL; i++) {
+		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", n->key_tag[i]);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", ds->alg);
+		apr_brigade_printf(bb, NULL, NULL, " %i", n->alg[i]);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", ds->digest_type);
+		apr_brigade_printf(bb, NULL, NULL, " %i", n->digest_type[i]);
 
 
-		SAFE_PRINTF(" %s", ds->digest);
-		if(ds->max_sig_life) apr_brigade_printf(bb, NULL, NULL, " %i", ds->max_sig_life);
+		SAFE_PRINTF(" %s", n->digest[i]);
+		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, " %i", n->max_sig_life[i]);
 
 		apr_brigade_puts(bb, NULL, NULL, "\n");
-	}
-
-	for (key = n->key; key->key != NULL; key++) {
-		apr_brigade_printf(bb, NULL, NULL, "keys:	  %i", key->flags);
-
-		apr_brigade_printf(bb, NULL, NULL, " %i", key->protocol);
-
-		apr_brigade_printf(bb, NULL, NULL, " %i", key->alg);
-
-		SAFE_PRINTF(" %s", key->public_key);
 	}
 
 	for (i = 0; n->tech_c[i] != NULL; i++) {
