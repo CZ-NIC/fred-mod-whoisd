@@ -102,11 +102,11 @@ typedef struct {
 	ap_log_error(mark, level, status, (c)->base_server, __VA_ARGS__)
 #endif
 
-/** checks if there is any kind of search set in the query 
+/** checks if there is any kind of search set in the query
  */
 #define IS_SEARCH_SET(wr)   ((wr)->axe || (wr)->norecursion || (wr)->type)
 
-/** Error message in case of incorrect usage 
+/** Error message in case of incorrect usage
  */
 static const char *usagestr = \
 "% Usage:   whois [options] [[type] value]\n\
@@ -140,7 +140,7 @@ static const char *usagestr = \
 % http://www.nic.cz/whois/manual\n\
 ";
 
-/**  List of attributes which can be used in search, this 
+/**  List of attributes which can be used in search, this
  * is displayed with -q indexes
  */
 static const char *indexlist = \
@@ -806,28 +806,28 @@ static char *read_request(conn_rec *c, int *http_status)
  */
 static int getobjtype(int *bittype, const char *strtype)
 {
-	if (strncasecmp(strtype, "domain", MAXTYPELEN) == 0) {
+	if (strstr(strtype, "domain") != NULL) {
 		*bittype |= T_DOMAIN;
-		return 0;
 	}
-	else if (strncasecmp(strtype, "nsset", MAXTYPELEN) == 0) {
+	if (strstr(strtype, "nsset") != NULL) {
 		*bittype |= T_NSSET;
-		return 0;
 	}
-	else if (strncasecmp(strtype, "keyset", MAXTYPELEN) == 0) {
+	if (strstr(strtype, "keyset") != NULL) {
 		*bittype |= T_KEYSET;
-		return 0;
 	}
-	else if (strncasecmp(strtype, "contact", MAXTYPELEN) == 0) {
+	if (strstr(strtype, "contact") != NULL) {
 		*bittype |= T_CONTACT;
-		return 0;
 	}
-	else if (strncasecmp(strtype, "registrar", MAXTYPELEN) == 0) {
+	if (strstr(strtype, "registrar") != NULL) {
 		*bittype |= T_REGISTRAR;
+	}
+
+	if (bittype == 0) {
+		/* unknown object type */
+		return 1;
+	} else {
 		return 0;
 	}
-	/* unknown object type */
-	return 1;
 }
 
 /**
