@@ -431,6 +431,8 @@ static void
 copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 {
 	obj_keyset *k;
+	keyset_dsrecord *ds;
+	keyset_dnskey *key;
 	int	 i, len;
 
 	/* copy keyset data */
@@ -443,24 +445,33 @@ copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 
 	len = c_keyset->dsrecords._length + 1;
 
-	k->key_tag = (int *) malloc(len * sizeof(int));
-	k->digest = (char **) malloc(len * sizeof (char *));
-	k->alg = (int *) malloc(len * sizeof(int));
-	k->digest_type = (int *) malloc(len * sizeof(int));
-	k->max_sig_life = (int *) malloc(len * sizeof(int));
-	
-	for (i = 0; i < (len - 1); i++) {
-		k->key_tag[i] = c_keyset->dsrecords._buffer[i].keyTag; 
-		k->digest[i] = strdup(c_keyset->dsrecords._buffer[i].digest); 
-		k->alg[i] = c_keyset->dsrecords._buffer[i].alg; 
-		k->digest_type[i] = c_keyset->dsrecords._buffer[i].digestType; 
-		k->max_sig_life[i] = c_keyset->dsrecords._buffer[i].maxSigLife; 
+	ds = k->ds = (keyset_dsrecord*)malloc(len * sizeof(keyset_dsrecord));
+
+	for (i = 0; i < (len - 1); i++, ds++) {
+		ds->key_tag = c_keyset->dsrecords._buffer[i].keyTag; 
+		ds->digest = strdup(c_keyset->dsrecords._buffer[i].digest); 
+		ds->alg = c_keyset->dsrecords._buffer[i].alg; 
+		ds->digest_type = c_keyset->dsrecords._buffer[i].digestType; 
+		ds->max_sig_life = c_keyset->dsrecords._buffer[i].maxSigLife; 
 	}
-	k->key_tag[i] = -1;		
-	k->digest[i] = NULL;
-	k->alg[i] = -1;
-	k->digest_type[i] = -1;
-	k->max_sig_life[i] = -1;
+	ds->key_tag = -1;		
+	ds->digest = NULL;
+	ds->alg = -1;
+	ds->digest_type = -1;
+	ds->max_sig_life = -1;
+
+	key = k->keys = (keyset_dnskey*)malloc(len * sizeof(keyset_dnskey));
+
+	for (i = 0; i < (len - 1); i++, key++) {
+		key->flags = c_keyset->dnskeys._buffer[i].flags;
+		key->protocol = c_keyset->dnskeys._buffer[i].protocol;
+		key->alg = c_keyset->dnskeys._buffer[i].alg;
+		key->public_key = strdup(c_keyset->dnskeys._buffer[i].key);
+	}
+	key->public_key = NULL;
+	key->flags = -1;
+	key->protocol = -1;
+	key->alg = -1;
 
 	k->tech_c = (char **)
 		malloc((c_keyset->admins._length + 1) * sizeof (char *));
@@ -1220,6 +1231,9 @@ whois_release_data(general_object *objects)
 	obj_contact	*c;
 	obj_registrar	*r;
 
+	keyset_dsrecord *ds;
+	keyset_dnskey *dnsk;
+
 	for (i = 0; (objects[i].type != T_NONE) && (i < MAX_OBJECT_COUNT); i++)
 	{
 		switch (objects[i].type) {
@@ -1257,16 +1271,23 @@ whois_release_data(general_object *objects)
 				break;
 			case T_KEYSET:
 				k = &objects[i].obj.k;
+				// keyset handle
 				free(k->keyset);
-				for(j = 0; k->digest[j] != NULL; j++)
-					free(k->digest[j]);
-
-				free(k->digest);
-				free(k->key_tag);
-				free(k->alg);
-				free(k->digest_type);
-				free(k->max_sig_life);
 				
+				// release DS records
+				for(ds = k->ds; ds->digest != NULL; ds++) {
+					free(ds->digest);
+					free(ds);
+				}
+				free(ds);					
+
+				// release dnskey records
+				for(dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
+					free(dnsk->public_key);
+					free(dnsk);
+				}
+				free(dnsk);
+
 				for(j = 0; k->tech_c[j] != NULL; j++) 
 					free(k->tech_c[j]);
 

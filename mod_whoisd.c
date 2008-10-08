@@ -192,6 +192,7 @@ changed:      [optional]   [single]\n\
 \n\
 keyset:	      [mandatory]  [single]\n\
 ds:    	      [mandatory]  [multiple]\n\
+key:	      [mandatory]  [multiple]\n\
 tech-c:       [mandatory]  [multiple]\n\
 registrar:    [mandatory]  [single]\n\
 created:      [mandatory]  [single]\n\
@@ -454,36 +455,48 @@ char *ds_get_algorithm_type(int type)
  * @param bb    Bucket brigade.
  * @param n     Keyset object.
  */
-static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *n)
+static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *k)
 {
-	int	i;
+	int i;
+	keyset_dsrecord *ds;
+	keyset_dnskey	*dnsk;
 
 #define SAFE_PRINTF(fmt, str) \
 	if (str != NULL) apr_brigade_printf(bb, NULL, NULL, fmt, str);
 
-	SAFE_PRINTF("keyset:       %s\n", n->keyset);
+	SAFE_PRINTF("keyset:       %s\n", k->keyset);
 
-	for (i = 0; n->digest[i] != NULL; i++) {
-		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", n->key_tag[i]);
+	for (ds = k->ds; ds->digest != NULL; ds++) {
+		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", ds->key_tag);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", n->alg[i]);
+		apr_brigade_printf(bb, NULL, NULL, " %i", ds->alg);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", n->digest_type[i]);
+		apr_brigade_printf(bb, NULL, NULL, " %i", ds->digest_type);
 
 
-		SAFE_PRINTF(" %s", n->digest[i]);
-		if(n->max_sig_life[i]) apr_brigade_printf(bb, NULL, NULL, " %i", n->max_sig_life[i]);
+		SAFE_PRINTF(" %s", ds->digest);
+		if(ds->max_sig_life) apr_brigade_printf(bb, NULL, NULL, " %i", ds->max_sig_life);
 
 		apr_brigade_puts(bb, NULL, NULL, "\n");
 	}
 
-	for (i = 0; n->tech_c[i] != NULL; i++) {
-		SAFE_PRINTF("tech-c:       %s\n", n->tech_c[i]);
+	for (dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
+		apr_brigade_printf(bb, NULL, NULL, "keys:	  %i", dnsk->flags);
+
+		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->protocol);
+
+		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->alg);
+
+		SAFE_PRINTF(" %s", dnsk->public_key);
 	}
 
-     	SAFE_PRINTF("registrar:    %s\n", n->registrar);
-	SAFE_PRINTF("created:      %s\n", n->created);
-	SAFE_PRINTF("changed:      %s\n", n->changed);
+	for (i = 0; k->tech_c[i] != NULL; i++) {
+		SAFE_PRINTF("tech-c:       %s\n", k->tech_c[i]);
+	}
+
+     	SAFE_PRINTF("registrar:    %s\n", k->registrar);
+	SAFE_PRINTF("created:      %s\n", k->created);
+	SAFE_PRINTF("changed:      %s\n", k->changed);
 	apr_brigade_puts(bb, NULL, NULL, "\n");
 
 #undef SAFE_PRINTF
