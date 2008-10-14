@@ -481,7 +481,7 @@ static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *k)
 	}
 
 	for (dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
-		apr_brigade_printf(bb, NULL, NULL, "keys:	  %i", dnsk->flags);
+		apr_brigade_printf(bb, NULL, NULL, "keys:	      %i", dnsk->flags);
 
 		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->protocol);
 

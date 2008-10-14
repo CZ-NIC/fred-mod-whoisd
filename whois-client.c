@@ -460,6 +460,8 @@ copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 	ds->digest_type = -1;
 	ds->max_sig_life = -1;
 
+	len = c_keyset->dnskeys._length + 1;
+
 	key = k->keys = (keyset_dnskey*)malloc(len * sizeof(keyset_dnskey));
 
 	for (i = 0; i < (len - 1); i++, key++) {
@@ -1275,18 +1277,12 @@ whois_release_data(general_object *objects)
 				free(k->keyset);
 				
 				// release DS records
-				for(ds = k->ds; ds->digest != NULL; ds++) {
-					free(ds->digest);
-					free(ds);
-				}
-				free(ds);					
+				for(ds = k->ds; ds->digest != NULL; ds++) free(ds->digest);
+				free(k->ds);					
 
 				// release dnskey records
-				for(dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
-					free(dnsk->public_key);
-					free(dnsk);
-				}
-				free(dnsk);
+				for(dnsk = k->keys; dnsk->public_key != NULL; dnsk++) free(dnsk->public_key);
+				free(k->keys);
 
 				for(j = 0; k->tech_c[j] != NULL; j++) 
 					free(k->tech_c[j]);
