@@ -481,13 +481,13 @@ static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *k)
 	}
 
 	for (dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
-		apr_brigade_printf(bb, NULL, NULL, "keys:	      %i", dnsk->flags);
+		apr_brigade_printf(bb, NULL, NULL, "dnskey:	      %i", dnsk->flags);
 
 		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->protocol);
 
 		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->alg);
 
-		SAFE_PRINTF(" %s", dnsk->public_key);
+		SAFE_PRINTF(" %s\n", dnsk->public_key);
 	}
 
 	for (i = 0; k->tech_c[i] != NULL; i++) {
