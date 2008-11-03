@@ -1,4 +1,4 @@
-/*  
+/*
  *  Copyright (C) 2007  CZ.NIC, z.s.p.o.
  *
  *  This file is part of FRED.
@@ -150,7 +150,7 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 #endif
 
 /**
- * Check for duplicates in array of objects. 
+ * Check for duplicates in array of objects.
  *
  * @param type       Which type of objects to look for.
  * @param handle     Handle of the object.
@@ -158,7 +158,7 @@ whois_corba_call(service_Whois service, const whois_request *wr,
  * @param index_free First free item in array of objects.
  * @return           0 if no duplicates are present, 1 otherwise.
  */
-int check_duplicates(int type, char *handle, general_object *objects, int index_free) 
+int check_duplicates(int type, char *handle, general_object *objects, int index_free)
 {
 	int j;
 
@@ -941,7 +941,7 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 				objects, index_free, errmsg);
 		if (ret != CORBA_OK) return ret;
 	}
-	
+
 	if (*index_free >= MAX_OBJECT_COUNT)
 		return CORBA_OK_LIMIT;
 
@@ -1111,6 +1111,63 @@ get_domain_by_attr(service_Whois service,
 	return ret;
 }
 
+/**
+ * Log a message using logging daemon
+ *
+ * @param service    Whois CORBA object reference.
+ * @param sourceIP   IP of the host which sent the request.
+ * @param event_type Whether it's request or response.
+ * @param content    Raw content of the message.
+ * @param properties Custom properties parsed from the content
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+int
+whois_log_message(service_Logger service,
+		const char *sourceIP,
+		ccReg_LogEventType event_type,
+		const char *content,
+		ccReg_LogProperties *properties,
+		char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	int	 retr;  /* retry counter */
+	int	 ret;
+	int 	 success;
+
+	if(properties == NULL) {
+		properties = ccReg_LogProperties__alloc();
+		if(properties == NULL) return CORBA_SERVICE_FAILED;
+
+		properties->_maximum = properties->_length = 0;
+	}
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		/* call logger method */
+		success = ccReg_Log_message((ccReg_Log) service, sourceIP,  ccReg_LC_UNIX_WHOIS, event_type, content, properties, 12, ev);
+
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		CORBA_exception_free(ev);
+		return CORBA_SERVICE_FAILED;
+	}
+	CORBA_exception_free(ev);
+
+	ret = CORBA_OK;
+	return ret;
+}
+
 /** Call the right function for the specific object type / search axis / handle
  * combination
  *
@@ -1128,7 +1185,7 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 	int	rec = (wr->norecursion ? 0 : 1);
 	int	ifree = 0;  /* Index of first free item in objects array */
 	int	ret;        /* return code from subroutines */
- 
+
 	assert(timebuf != NULL);
 	/* XXX Temporary hack */
 	strncpy(timebuf, "DUMMY:TIME", TIME_BUFFER_LENGTH);

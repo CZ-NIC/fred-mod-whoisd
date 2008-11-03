@@ -91,7 +91,8 @@ typedef struct {
 	const char *disclaimer_filename; /**< File with disclaimer. */
 	char	*disclaimer;             /**< Disclaimer as a string. */
 	char	*object;                 /**< Name of whois object. */
-}whoisd_server_conf;
+	char	*logger_object;          /**< Name of logger object. */
+} whoisd_server_conf;
 
 #if AP_SERVER_MINORVERSION_NUMBER == 0
 /**
@@ -464,40 +465,40 @@ static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *k)
 #define SAFE_PRINTF(fmt, str) \
 	if (str != NULL) apr_brigade_printf(bb, NULL, NULL, fmt, str);
 
-	SAFE_PRINTF("keyset:       %s\n", k->keyset);
+     	SAFE_PRINTF("keyset:       %s\n", k->keyset);
 
-	for (ds = k->ds; ds->digest != NULL; ds++) {
-		apr_brigade_printf(bb, NULL, NULL, "ds:           %i", ds->key_tag);
+        for (ds = k->ds; ds->digest != NULL; ds++) {
+                apr_brigade_printf(bb, NULL, NULL, "ds:           %i", ds->key_tag);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", ds->alg);
+                apr_brigade_printf(bb, NULL, NULL, " %i", ds->alg);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", ds->digest_type);
+                apr_brigade_printf(bb, NULL, NULL, " %i", ds->digest_type);
 
 
-		SAFE_PRINTF(" %s", ds->digest);
-		if(ds->max_sig_life) apr_brigade_printf(bb, NULL, NULL, " %i", ds->max_sig_life);
+                SAFE_PRINTF(" %s", ds->digest);
+                if(ds->max_sig_life) apr_brigade_printf(bb, NULL, NULL, " %i", ds->max_sig_life);
 
-		apr_brigade_puts(bb, NULL, NULL, "\n");
-	}
+                apr_brigade_puts(bb, NULL, NULL, "\n");
+        }
 
-	for (dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
-		apr_brigade_printf(bb, NULL, NULL, "dnskey:	      %i", dnsk->flags);
+        for (dnsk = k->keys; dnsk->public_key != NULL; dnsk++) {
+                apr_brigade_printf(bb, NULL, NULL, "dnskey:       %i", dnsk->flags);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->protocol);
+                apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->protocol);
 
-		apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->alg);
+                apr_brigade_printf(bb, NULL, NULL, " %i", dnsk->alg);
 
-		SAFE_PRINTF(" %s\n", dnsk->public_key);
-	}
+                SAFE_PRINTF(" %s\n", dnsk->public_key);
+        }
 
-	for (i = 0; k->tech_c[i] != NULL; i++) {
-		SAFE_PRINTF("tech-c:       %s\n", k->tech_c[i]);
-	}
+        for (i = 0; k->tech_c[i] != NULL; i++) {
+                SAFE_PRINTF("tech-c:       %s\n", k->tech_c[i]);
+        }
 
-     	SAFE_PRINTF("registrar:    %s\n", k->registrar);
-	SAFE_PRINTF("created:      %s\n", k->created);
-	SAFE_PRINTF("changed:      %s\n", k->changed);
-	apr_brigade_puts(bb, NULL, NULL, "\n");
+        SAFE_PRINTF("registrar:    %s\n", k->registrar);
+        SAFE_PRINTF("created:      %s\n", k->created);
+        SAFE_PRINTF("changed:      %s\n", k->changed);
+        apr_brigade_puts(bb, NULL, NULL, "\n");
 
 #undef SAFE_PRINTF
 }
@@ -558,31 +559,17 @@ static void print_registrar_object(apr_bucket_brigade *bb, obj_registrar *r)
 }
 
 /**
- * Whois request processor.
- *
- * This function is called from connection handler. It performs
- * a CORBA call through CORBA backend and then processes data and
- * sends a whois answer.
- *
- * @param c   Connection.
- * @param sc  Server configuration.
- * @param wr  Whois request data
- * @return    Result of processing.
- */
-static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
-		whois_request *wr)
+ *  * Get a reference to the CORBA service with the given name
+ *   *
+ *    * @param c     Connection.
+ *     * @param name  Name of the service.
+ *      */
+static void *get_corba_service(conn_rec *c, char *name)
 {
-	int	rc;
-	int	i;
-	char	timebuf[TIME_BUFFER_LENGTH]; /* buffer for time of resp. gen. */
-	char	errmsg[MAX_ERROR_MSG_LEN];
-	general_object	*objects; /* result array */
-	apr_time_t	 time1, time2; /* meassuring of CORBA server latency */
-	apr_status_t	 status;
-	apr_bucket_brigade *bb;  /* brigade for response */
-	service_Whois	 service;
-	apr_hash_t	*references;
-	module		*corba_module;
+        int             i;
+        apr_hash_t      *references;
+        module          *corba_module;
+        void            *service;
 
 	/*
 	 * get module structure for mod_corba, in order to retrieve service
@@ -599,7 +586,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 				"mod_corba module was not loaded - unable to "
 				"handle a whois request");
-		return APR_EGENERAL;
+		return NULL;
 	}
 
 	references = (apr_hash_t *)
@@ -608,17 +595,55 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"mod_corba is not enabled for this server though it "
 			"should be! Cannot handle whois request.");
-		return APR_EGENERAL;
+		return NULL;
 	}
 
-	service = (service_Whois *) apr_hash_get(references, sc->object,
-			strlen(sc->object));
-	if (service == NULL) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-			"Could not obtain object reference for alias '%s'. "
-			"Check mod_corba's configuration.", sc->object);
-		return APR_EGENERAL;
-	}
+        service = (void *) apr_hash_get(references, name,
+                        strlen(name));
+        if (service == NULL) {
+                ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+                        "Could not obtain object reference for alias '%s'. "
+                        "Check mod_corba's configuration.", name);
+                return NULL;
+        }
+
+
+	return service;
+}
+
+/**
+ * Whois request processor.
+ *
+ * This function is called from connection handler. It performs
+ * a CORBA call through CORBA backend and then processes data and
+ * sends a whois answer.
+ *
+ * @param c   Connection.
+ * @param sc  Server configuration.
+ * @return    Result of processing.
+ */
+static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
+		whois_request *wr)
+{
+	int	rc;
+	int	i;
+	char	timebuf[TIME_BUFFER_LENGTH]; /* buffer for time of resp. gen. */
+	char	errmsg[MAX_ERROR_MSG_LEN];
+	general_object	*objects; /* result array */
+	apr_time_t	 time1, time2; /* meassuring of CORBA server latency */
+	apr_status_t	 status;
+	apr_bucket_brigade *bb;  /* brigade for response */
+
+	service_Whois	 service;
+	service_Logger 	 log_service;
+	char 	*buf;
+	unsigned len;
+
+	service = (service_Whois*)get_corba_service(c, sc->object);
+	// log_service = (service_Logger*)get_corba_service(c, "Logger_alias");
+	log_service = (service_Logger*)get_corba_service(c, sc->logger_object);
+
+	if(service == NULL || log_service == NULL) return APR_EGENERAL;
 
 	objects = (general_object *)
 		apr_palloc(c->pool, MAX_OBJECT_COUNT * (sizeof *objects));
@@ -698,6 +723,46 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 				break;
 		}
 	}
+
+	// ------ call fred-logd
+
+	#define MAX_BUF_LEN 512
+	buf = apr_palloc(c->pool, MAX_BUF_LEN + 1);
+	if (buf == NULL) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, status, c,
+				"Could allocate buffer for request.");
+		send_error(c, sc->disclaimer, 501);
+
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+
+	/* convert brigade into string */
+	len = MAX_BUF_LEN;
+	status = apr_brigade_flatten(bb, buf, &len);
+	if (status != APR_SUCCESS) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, status, c,
+				"Could not flatten apr_brigade!");
+		send_error(c, sc->disclaimer, 501);
+
+		return HTTP_INTERNAL_SERVER_ERROR;
+	}
+	buf[MAX_BUF_LEN] = '\0';
+
+
+	errmsg[0] = '\0';
+
+	rc = whois_log_message(log_service, c->remote_ip, ccReg_LT_RESPONSE, buf, NULL, errmsg);
+
+	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Unknown error in CORBA backend (%d): %s",
+			rc, errmsg);
+		send_error(c, sc->disclaimer, 501);
+		return APR_SUCCESS;
+	}
+
+	// ----------- logd
+
 	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
 			"%d object(s) returned for query", i);
 	whois_release_data(objects);
@@ -844,6 +909,136 @@ static int getobjtype(int *bittype, const char *strtype)
 }
 
 /**
+ * Function wraps strings passed from XML parser into strings accepted
+ * by CORBA.
+ *
+ * Null strings are transformed to empty strings. The resulting string
+ * must be freed with CORBA_free().
+ *
+ * @param str	Input string.
+ * @return      Output string.
+ */
+static char *
+wrap_str(const char *str)
+{
+	if (str == NULL)
+		return CORBA_string_dup("");
+
+	return CORBA_string_dup(str);
+}
+
+/*
+ * Call fred-logd
+ *
+ * @param wr		Request data.
+ * @param c 		Incomnig connection.
+ * @param content	Request string.
+ * @param sc 		Server config.
+ */
+static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *content, whoisd_server_conf *sc)
+{
+	ccReg_LogProperties *c_props = NULL;
+	service_Logger *service;
+	int 	rc, i, empty;
+	char	errmsg[MAX_ERROR_MSG_LEN], str[42];	// TODO
+
+	// service = (service_Logger*)get_corba_service(c, "Logger_alias");
+	service = (service_Logger*)get_corba_service(c, sc->logger_object);
+	if(service == NULL) return APR_EGENERAL;
+
+	c_props = ccReg_LogProperties__alloc();
+	if (c_props == NULL) return HTTP_INTERNAL_SERVER_ERROR;
+
+	if(wr->norecursion) {
+		c_props->_maximum = c_props->_length = 4;
+	} else {
+		return 0;
+	}
+
+	c_props->_buffer = ccReg_LogProperties_allocbuf(c_props->_length);
+	if (c_props->_length != 0 && c_props->_buffer == NULL) goto error;
+	c_props->_release = CORBA_TRUE;
+
+	i = 0;
+	c_props->_buffer[i].name = wrap_str("search axis");
+	switch (wr->axe) {
+		case SA_NONE: c_props->_buffer[i].value = wrap_str("none");
+			break;
+		case SA_REGISTRANT: c_props->_buffer[i].value = wrap_str("registrant");
+			break;
+		case SA_ADMIN_C: c_props->_buffer[i].value = wrap_str("admin-c");
+			break;
+		case SA_TEMP_C: c_props->_buffer[i].value = wrap_str("temp-c");
+			break;
+		case SA_NSSET: c_props->_buffer[i].value = wrap_str("nsset");
+			break;
+		case SA_KEYSET: c_props->_buffer[i].value = wrap_str("keyset");
+			break;
+		case SA_NSERVER: c_props->_buffer[i].value = wrap_str("nserver");
+			break;
+		case SA_TECH_C: c_props->_buffer[i].value = wrap_str("tech-c");
+			break;
+	}
+	i++;
+
+	c_props->_buffer[i].name = wrap_str("type");
+	empty = 1;
+	str[0]='\0';
+	if(wr->type & T_DOMAIN) {
+		strncat(str, "domain", 6);
+		empty = 0;
+	}
+	if(wr->type & T_NSSET) {
+		if(!empty) strncat(str, ", ", 2);
+		strncat(str, "nsset", 5);
+		empty = 0;
+	}
+	if(wr->type & T_KEYSET) {
+		if(!empty) strncat(str, ", ", 2);
+		strncat(str, "keyset", 6);
+		empty = 0;
+	}
+	if(wr->type & T_CONTACT) {
+		if(!empty) strncat(str, ", ", 2);
+		strncat(str, "contact", 7);
+		empty = 0;
+	}
+	if(wr->type & T_REGISTRAR) {
+		if(!empty) strncat(str, ", ", 2);
+		strncat(str, "registrar", 9);
+		empty = 0;
+	}
+	// TODO should none be inserted as a string ?
+	c_props->_buffer[i].value = wrap_str(str);
+	i++;
+
+	c_props->_buffer[i].name = wrap_str("value");
+	c_props->_buffer[i].value = wrap_str(wr->value);
+	i++;
+
+	if(wr->norecursion) {
+		c_props->_buffer[i].name = wrap_str("recursion");
+		c_props->_buffer[i].value= wrap_str("off");
+		i++;
+	}
+
+	errmsg[0] = '\0';
+	rc = whois_log_message(service, c->remote_ip, ccReg_LT_REQUEST, content, c_props, errmsg);
+
+	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Unknown error in CORBA backend (%d): %s",
+			rc, errmsg);
+		send_error(c, sc->disclaimer, 501);
+	}
+
+	error:
+	CORBA_free(c_props);
+
+	return APR_SUCCESS;
+}
+
+/**
  * Connection handler of mod_whoisd module.
  *
  * If mod_whoisd is for server enabled, the request is read (assuming
@@ -873,6 +1068,9 @@ static int process_whois_connection(conn_rec *c)
 	server_rec	*s = c->base_server;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
+
+
+	char *inputline_copy;
 
 	/* do nothing if whoisd is disabled */
 	if (!sc->whoisd_enabled)
@@ -1074,6 +1272,11 @@ static int process_whois_connection(conn_rec *c)
 		}
 		wr->value = argv[os->ind + 1];
 	}
+
+	status = log_whois_request(wr, c, inputline_copy, sc);
+
+	if (status != APR_SUCCESS)
+		return status;
 
 	/* if type of object was not specified, all types should be searched */
 	if (!wr->type)
@@ -1288,6 +1491,43 @@ static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
 	return NULL;
 }
 
+
+/**
+ * Routine sets name under which logger object is registered by nameservice.
+ *
+ * @param cmd     Command.
+ * @param dummy   Not used arg.
+ * @param name    The value.
+ * @return        NULL if OK, otherwise a string.
+ */
+static const char *set_logger_object(cmd_parms *cmd, void *dummy,
+		const char *name)
+{
+	const char *err;
+	server_rec *s = cmd->server;
+	whoisd_server_conf *sc = (whoisd_server_conf *)
+			ap_get_module_config(s->module_config, &whoisd_module);
+
+	err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE|NOT_IN_LIMIT);
+	if (err) return err;
+
+	/*
+	 * catch double definition of filename
+	 * that's not serious fault so we will just print log message
+	 */
+	if (sc->logger_object != NULL) {
+		ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+			"mod_whoisd: more than one definition of logger object "
+			"name. All but the first one will be ignored");
+		return NULL;
+	}
+
+	sc->logger_object = apr_pstrdup(cmd->pool, name);
+
+	return NULL;
+}
+
+
 /**
  * Routine sets name under which is registered whois object by nameservice.
  *
@@ -1333,6 +1573,9 @@ static const command_rec whoisd_cmds[] = {
 	AP_INIT_TAKE1("WhoisObject", set_whois_object, NULL, RSRC_CONF,
 			 "Name under which the whois object is known to "
 			 "nameserver. Default is \"Whois\"."),
+	AP_INIT_TAKE1("WhoisLogdObject", set_logger_object, NULL, RSRC_CONF,
+			 "Name under which the fred-logd object is known to "
+			 "nameserver. Default is \"Logger\"."),
 	{ NULL }
 };
 

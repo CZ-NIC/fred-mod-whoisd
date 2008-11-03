@@ -1,4 +1,4 @@
-/*  
+/*
  *  Copyright (C) 2007  CZ.NIC, z.s.p.o.
  *
  *  This file is part of FRED.
@@ -60,6 +60,9 @@
 /** reference to the whois corba service 
  */
 typedef void *service_Whois;
+/** reference to the logger corba service 
+ */
+typedef void *service_Logger;
 
 #define T_NONE		0   /* Nothing. */
 #define T_DOMAIN	1   /* Object type domain. */
@@ -139,7 +142,7 @@ typedef struct {
 /** Structure holding keyset data */
 typedef struct {
 	char 	*keyset;	/**< Handle of keyset. */
-	
+
 	char   **tech_c;	/**< Handles of technical contacts. */
 
 	keyset_dsrecord *ds;	/**< Delegation signer records */
@@ -215,5 +218,25 @@ whois_corba_call(service_Whois service,
 void whois_release_data(general_object *object_list);
 
 int check_duplicates(int type, char *handle, general_object *objects, int index_free);
+
+/**
+ * Log a message using logging daemon
+ *
+ * @param service    Whois CORBA object reference.
+ * @param sourceIP   IP of the host which sent the request.
+ * @param event_type Whether it's request or response.
+ * @param content    Raw content of the message.
+ * @param properties Custom properties parsed from the content
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+int
+whois_log_message(service_Logger service,
+		const char *sourceIP,
+		ccReg_LogEventType event_type,
+		const char *content,
+		ccReg_LogProperties *properties,
+		char *errmsg);
+
 
 #endif /* WHOIS_CLIENT_H */

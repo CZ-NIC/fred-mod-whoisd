@@ -23,9 +23,11 @@ LoadModule whoisd_module @MODULE_INSTALLDIR@/mod_whoisd.so
    CorbaEnable       On
    CorbaNameservice  @NSHOST@
    CorbaObject       @OBJECTNAME@ Whois_alias
+   CorbaObject	     @LOGGER_OBJECTNAME@ Logger_alias
 
    WhoisProtocol     On
-   WhoisObject       Whois_alias
+   WhoisObject       Whois_alias   
+   WhoisLogdObject Logger_alias
 #   WhoisDisclaimer   "/etc/apache2/disclaimer.txt"
 </VirtualHost>
 
