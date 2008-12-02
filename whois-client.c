@@ -448,13 +448,13 @@ copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 	ds = k->ds = (keyset_dsrecord*)malloc(len * sizeof(keyset_dsrecord));
 
 	for (i = 0; i < (len - 1); i++, ds++) {
-		ds->key_tag = c_keyset->dsrecords._buffer[i].keyTag; 
-		ds->digest = strdup(c_keyset->dsrecords._buffer[i].digest); 
-		ds->alg = c_keyset->dsrecords._buffer[i].alg; 
-		ds->digest_type = c_keyset->dsrecords._buffer[i].digestType; 
-		ds->max_sig_life = c_keyset->dsrecords._buffer[i].maxSigLife; 
+		ds->key_tag = c_keyset->dsrecords._buffer[i].keyTag;
+		ds->digest = strdup(c_keyset->dsrecords._buffer[i].digest);
+		ds->alg = c_keyset->dsrecords._buffer[i].alg;
+		ds->digest_type = c_keyset->dsrecords._buffer[i].digestType;
+		ds->max_sig_life = c_keyset->dsrecords._buffer[i].maxSigLife;
 	}
-	ds->key_tag = -1;		
+	ds->key_tag = -1;
 	ds->digest = NULL;
 	ds->alg = -1;
 	ds->digest_type = -1;
@@ -1125,7 +1125,6 @@ get_domain_by_attr(service_Whois service,
 int
 whois_log_message(service_Logger service,
 		const char *sourceIP,
-		ccReg_LogEventType event_type,
 		const char *content,
 		ccReg_LogProperties *properties,
 		char *errmsg)
@@ -1134,6 +1133,7 @@ whois_log_message(service_Logger service,
 	int	 retr;  /* retry counter */
 	int	 ret;
 	int 	 success;
+	ccReg_TID db_id;
 
 	if(properties == NULL) {
 		properties = ccReg_LogProperties__alloc();
@@ -1148,7 +1148,8 @@ whois_log_message(service_Logger service,
 		CORBA_exception_init(ev);
 
 		/* call logger method */
-		success = ccReg_Log_message((ccReg_Log) service, sourceIP,  ccReg_LC_UNIX_WHOIS, event_type, content, properties, ev);
+
+		db_id = ccReg_Log_new_event((ccReg_Log) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1175,7 +1176,7 @@ whois_log_message(service_Logger service,
  * @param wr         Whois request.
  * @param objects    Array of resulting objects.
  * @param timebuf    Timestamp.
- * @param errmsg 	
+ * @param errmsg
  * @return           Status.
  */
 int
@@ -1332,16 +1333,16 @@ whois_release_data(general_object *objects)
 				k = &objects[i].obj.k;
 				// keyset handle
 				free(k->keyset);
-				
+
 				// release DS records
 				for(ds = k->ds; ds->digest != NULL; ds++) free(ds->digest);
-				free(k->ds);					
+				free(k->ds);
 
 				// release dnskey records
 				for(dnsk = k->keys; dnsk->public_key != NULL; dnsk++) free(dnsk->public_key);
 				free(k->keys);
 
-				for(j = 0; k->tech_c[j] != NULL; j++) 
+				for(j = 0; k->tech_c[j] != NULL; j++)
 					free(k->tech_c[j]);
 
 				free(k->tech_c);

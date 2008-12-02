@@ -233,7 +233,6 @@ int check_duplicates(int type, char *handle, general_object *objects, int index_
 int
 whois_log_message(service_Logger service,
 		const char *sourceIP,
-		ccReg_LogEventType event_type,
 		const char *content,
 		ccReg_LogProperties *properties,
 		char *errmsg);

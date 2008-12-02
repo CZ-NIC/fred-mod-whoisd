@@ -751,7 +751,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	errmsg[0] = '\0';
 
-	rc = whois_log_message(log_service, c->remote_ip, ccReg_LT_RESPONSE, buf, NULL, errmsg);
+	rc = whois_log_message(log_service, c->remote_ip, buf, NULL, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
@@ -949,11 +949,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	c_props = ccReg_LogProperties__alloc();
 	if (c_props == NULL) return HTTP_INTERNAL_SERVER_ERROR;
 
-	if(wr->norecursion) {
-		c_props->_maximum = c_props->_length = 4;
-	} else {
-		return 0;
-	}
+	c_props->_maximum = c_props->_length = 4;
 
 	c_props->_buffer = ccReg_LogProperties_allocbuf(c_props->_length);
 	if (c_props->_length != 0 && c_props->_buffer == NULL) goto error;
@@ -1016,14 +1012,17 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	c_props->_buffer[i].value = wrap_str(wr->value);
 	i++;
 
+	c_props->_buffer[i].name = wrap_str("recursion");
 	if(wr->norecursion) {
-		c_props->_buffer[i].name = wrap_str("recursion");
-		c_props->_buffer[i].value= wrap_str("off");
-		i++;
+		c_props->_buffer[i].value= wrap_str("no");
+	} else {
+		c_props->_buffer[i].value= wrap_str("yes");
 	}
+	i++;
+		
 
 	errmsg[0] = '\0';
-	rc = whois_log_message(service, c->remote_ip, ccReg_LT_REQUEST, content, c_props, errmsg);
+	rc = whois_log_message(service, c->remote_ip, content, c_props, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
