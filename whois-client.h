@@ -224,14 +224,13 @@ int check_duplicates(int type, char *handle, general_object *objects, int index_
  *
  * @param service    Whois CORBA object reference.
  * @param sourceIP   IP of the host which sent the request.
- * @param event_type Whether it's request or response.
  * @param content    Raw content of the message.
  * @param properties Custom properties parsed from the content
  * @param errmsg     Buffer for error message.
  * @return           Status.
  */
 int
-whois_log_message(service_Logger service,
+whois_log_new_message(service_Logger service,
 		const char *sourceIP,
 		const char *content,
 		ccReg_LogProperties *properties,

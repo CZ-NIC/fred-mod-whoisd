@@ -54,6 +54,9 @@
 /** Call strdup on string only if it is not empty, otherwise return NULL. */
 #define NULL_STRDUP(src)	((*(src) == '\0') ? NULL : strdup(src))
 
+/** ID of a new entry in the logging database */
+static ccReg_TID log_database_act_id;
+
 #if 0
 /**
  * This routine was written as a simple test of generator part and can be used
@@ -1112,18 +1115,17 @@ get_domain_by_attr(service_Whois service,
 }
 
 /**
- * Log a message using logging daemon
+ * Log a new event using logging daemon
  *
  * @param service    Whois CORBA object reference.
  * @param sourceIP   IP of the host which sent the request.
- * @param event_type Whether it's request or response.
  * @param content    Raw content of the message.
  * @param properties Custom properties parsed from the content
  * @param errmsg     Buffer for error message.
  * @return           Status.
  */
 int
-whois_log_message(service_Logger service,
+whois_log_new_message(service_Logger service,
 		const char *sourceIP,
 		const char *content,
 		ccReg_LogProperties *properties,
@@ -1133,7 +1135,6 @@ whois_log_message(service_Logger service,
 	int	 retr;  /* retry counter */
 	int	 ret;
 	int 	 success;
-	ccReg_TID db_id;
 
 	if(properties == NULL) {
 		properties = ccReg_LogProperties__alloc();
@@ -1149,7 +1150,7 @@ whois_log_message(service_Logger service,
 
 		/* call logger method */
 
-		db_id = ccReg_Log_new_event((ccReg_Log) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, ev);
+		log_database_act_id = ccReg_Log_new_event((ccReg_Log) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1166,6 +1167,63 @@ whois_log_message(service_Logger service,
 	CORBA_exception_free(ev);
 
 	ret = CORBA_OK;
+	return ret;
+}
+
+/**
+ * Update and close existing event using logging daemon
+ *
+ * @param service    Whois CORBA object reference.
+ * @param content    Raw content of the message.
+ * @param properties Custom properties parsed from the content
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+int
+whois_close_log_message(service_Logger service,
+		const char *content,
+		ccReg_LogProperties *properties,
+		char *errmsg)
+{
+	CORBA_Environment	 ev[1];
+	CORBA_boolean 		success;
+	int	 retr;  /* retry counter */
+	int	 ret;
+
+	if(properties == NULL) {
+		properties = ccReg_LogProperties__alloc();
+		if(properties == NULL) return CORBA_SERVICE_FAILED;
+
+		properties->_maximum = properties->_length = 0;
+	}
+
+	/* retry loop */
+	for (retr = 0; retr < MAX_RETRIES; retr++) {
+		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
+		CORBA_exception_init(ev);
+
+		success = ccReg_Log_update_event_close((ccReg_Log) service, log_database_act_id, content, properties, ev);
+		
+		/* if COMM_FAILURE is not raised then quit retry loop */
+		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
+			break;
+		usleep(RETR_SLEEP);
+	}
+
+	if (raised_exception(ev)) {
+		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
+		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
+		CORBA_exception_free(ev);
+		return CORBA_SERVICE_FAILED;
+	}
+	CORBA_exception_free(ev);
+
+	if(success == CORBA_FALSE) {
+		ret = CORBA_UNKNOWN_ERROR;
+	} else {
+		ret = CORBA_OK;
+	}
+
 	return ret;
 }
 

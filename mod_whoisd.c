@@ -751,7 +751,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	errmsg[0] = '\0';
 
-	rc = whois_log_message(log_service, c->remote_ip, buf, NULL, errmsg);
+	rc = whois_close_log_message(log_service, buf, NULL, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
@@ -956,7 +956,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	c_props->_release = CORBA_TRUE;
 
 	i = 0;
-	c_props->_buffer[i].name = wrap_str("search axis");
+	c_props->_buffer[i].name = wrap_str("searchAxis");
 	switch (wr->axe) {
 		case SA_NONE: c_props->_buffer[i].value = wrap_str("none");
 			break;
@@ -975,6 +975,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 		case SA_TECH_C: c_props->_buffer[i].value = wrap_str("tech-c");
 			break;
 	}
+	c_props->_buffer[i].output = 0;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("type");
@@ -1006,10 +1007,12 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	}
 	// TODO should none be inserted as a string ?
 	c_props->_buffer[i].value = wrap_str(str);
+	c_props->_buffer[i].output = 0;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("value");
 	c_props->_buffer[i].value = wrap_str(wr->value);
+	c_props->_buffer[i].output = 0;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("recursion");
@@ -1018,11 +1021,11 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	} else {
 		c_props->_buffer[i].value= wrap_str("yes");
 	}
+	c_props->_buffer[i].output = 0;
 	i++;
 		
-
 	errmsg[0] = '\0';
-	rc = whois_log_message(service, c->remote_ip, content, c_props, errmsg);
+	rc = whois_log_new_message(service, c->remote_ip, content, c_props, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
@@ -1091,6 +1094,11 @@ static int process_whois_connection(conn_rec *c)
 			send_error(c, sc->disclaimer, 501);
 		return http_status;
 	}
+
+	/* make a copy of the input line (for logging) */
+	inputline_copy = apr_palloc(c->pool, MAX_WHOIS_REQUEST_LENGTH + 1);
+        strncpy(inputline_copy, inputline, MAX_WHOIS_REQUEST_LENGTH);
+        inputline_copy[MAX_WHOIS_REQUEST_LENGTH] = '\0';
 
 	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
 			"Whois input line: %s", inputline);
