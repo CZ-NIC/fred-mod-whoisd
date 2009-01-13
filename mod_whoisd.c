@@ -454,7 +454,7 @@ char *ds_get_algorithm_type(int type)
  * Function prints keyset information to bucket brigade.
  *
  * @param bb    Bucket brigade.
- * @param n     Keyset object.
+ * @param k     Keyset object.
  */
 static void print_keyset_object(apr_bucket_brigade *bb, obj_keyset *k)
 {
@@ -620,6 +620,8 @@ static void *get_corba_service(conn_rec *c, char *name)
  *
  * @param c   Connection.
  * @param sc  Server configuration.
+ * @param wr  Whois request data
+ *
  * @return    Result of processing.
  */
 static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
@@ -927,7 +929,7 @@ wrap_str(const char *str)
 	return CORBA_string_dup(str);
 }
 
-/*
+/**
  * Call fred-logd
  *
  * @param wr		Request data.
@@ -976,6 +978,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 			break;
 	}
 	c_props->_buffer[i].output = 0;
+	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("type");
@@ -1008,11 +1011,13 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	// TODO should none be inserted as a string ?
 	c_props->_buffer[i].value = wrap_str(str);
 	c_props->_buffer[i].output = 0;
+	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("value");
 	c_props->_buffer[i].value = wrap_str(wr->value);
 	c_props->_buffer[i].output = 0;
+	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("recursion");
@@ -1022,8 +1027,9 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 		c_props->_buffer[i].value= wrap_str("yes");
 	}
 	c_props->_buffer[i].output = 0;
+	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
-		
+
 	errmsg[0] = '\0';
 	rc = whois_log_new_message(service, c->remote_ip, content, c_props, errmsg);
 
