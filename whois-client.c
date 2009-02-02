@@ -57,6 +57,13 @@
 /** ID of a new entry in the logging database */
 static ccReg_TID log_database_act_id;
 
+/** maximum length of a string containing IP address
+ */
+const int IP_ADDR_LEN = 39;
+
+// for IPv4:
+// const int IP_ADDR_LEN = 15;
+
 #if 0
 /**
  * This routine was written as a simple test of generator part and can be used
@@ -402,8 +409,10 @@ if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free)) {
 static void
 copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
 {
+	const int 	IP_ADDR_LEN_SEP = IP_ADDR_LEN + 2;
+		/* length of IP address string including separator (`, ') */
 	obj_nsset	*n;
-	int	 i;
+	int	 	i, j;
 
 	/* copy nsset data */
 	obj->type = T_NSSET;
@@ -414,9 +423,27 @@ copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
 	n->changed = NULL_STRDUP(c_nsset->updateDate);
 	n->nserver = (char **)
 		malloc((c_nsset->hosts._length + 1) * sizeof (char *));
-	for (i = 0; i < c_nsset->hosts._length; i++)
+	n->nserver_addrs = (char **) 
+		malloc((c_nsset->hosts._length + 1) * sizeof (char *));
+	for (i = 0; i < c_nsset->hosts._length; i++) {
+		ccReg_InetAddress *addrs;
+
 		n->nserver[i] = strdup(c_nsset->hosts._buffer[i].fqdn);
+		
+		addrs = &c_nsset->hosts._buffer[i].inet;
+		if(addrs->_length > 0) {
+			n->nserver_addrs[i] = (char*)malloc(addrs->_length * IP_ADDR_LEN_SEP + 1);
+			n->nserver_addrs[i][0] = '\0';
+
+			strncpy(n->nserver_addrs[i], addrs->_buffer[0], IP_ADDR_LEN + 1);
+			for(j=1; j<addrs->_length; j++) {
+				strncat(n->nserver_addrs[i], ", ", 3);
+				strncat(n->nserver_addrs[i], addrs->_buffer[j], IP_ADDR_LEN + 1);
+			}
+		}
+	}
 	n->nserver[i] = NULL;
+	n->nserver_addrs[i] = NULL;
 	n->tech_c = (char **)
 		malloc((c_nsset->admins._length + 1) * sizeof (char *));
 	for (i = 0; i < c_nsset->admins._length; i++)
@@ -1377,9 +1404,12 @@ whois_release_data(general_object *objects)
 			case T_NSSET:
 				n = &objects[i].obj.n;
 				free(n->nsset);
-				for (j = 0; n->nserver[j] != NULL; j++)
+				for (j = 0; n->nserver[j] != NULL; j++) {
 					free(n->nserver[j]);
+					free(n->nserver_addrs[j]);
+				}
 				free(n->nserver);
+				free(n->nserver_addrs);
 				for (j = 0; n->tech_c[j] != NULL; j++)
 					free(n->tech_c[j]);
 				free(n->tech_c);

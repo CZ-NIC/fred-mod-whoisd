@@ -116,6 +116,7 @@ typedef struct {
 typedef struct {
 	char	 *nsset;       /**< Handle of nsset. */
 	char	**nserver;     /**< Nameservers in nsset. */
+	char	**nserver_addrs; /**< IP Addresses for each nameserver */
 	char	**tech_c;      /**< Handles of techical contacts. */
 	char	 *registrar;   /**< Handle of registrar. */
 	char	 *created;     /**< Date of nsset creation. */

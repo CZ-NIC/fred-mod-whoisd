@@ -401,7 +401,13 @@ static void print_nsset_object(apr_bucket_brigade *bb, obj_nsset *n)
 
 	SAFE_PRINTF("nsset:        %s\n", n->nsset);
 	for (i = 0; n->nserver[i] != NULL; i++) {
-	SAFE_PRINTF("nserver:      %s\n", n->nserver[i]);
+		if(n->nserver[i] != NULL) {
+			if(n->nserver_addrs[i] != NULL) {
+				apr_brigade_printf(bb, NULL, NULL, "nserver:      %s (%s)\n", n->nserver[i], n->nserver_addrs[i]);
+			} else {
+				SAFE_PRINTF("nserver:      %s \n", n->nserver[i]);
+			}
+		}
 	}
 	for (i = 0; n->tech_c[i] != NULL; i++) {
 	SAFE_PRINTF("tech-c:       %s\n", n->tech_c[i]);
