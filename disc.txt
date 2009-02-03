@@ -1,4 +1,4 @@
-(c) 2006,2007 CZ.NIC, z.s.p.o.
+(c) 2006-2009 CZ.NIC, z.s.p.o.
 
 Intended use of supplied data and information
 
