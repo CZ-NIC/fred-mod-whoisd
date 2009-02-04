@@ -423,13 +423,15 @@ copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
 	n->changed = NULL_STRDUP(c_nsset->updateDate);
 	n->nserver = (char **)
 		malloc((c_nsset->hosts._length + 1) * sizeof (char *));
-	n->nserver_addrs = (char **) 
+	n->nserver_addrs = (char **)
 		malloc((c_nsset->hosts._length + 1) * sizeof (char *));
+	memset (n->nserver_addrs, 0, (c_nsset->hosts._length + 1) * sizeof (char *) );
+
 	for (i = 0; i < c_nsset->hosts._length; i++) {
 		ccReg_InetAddress *addrs;
 
 		n->nserver[i] = strdup(c_nsset->hosts._buffer[i].fqdn);
-		
+
 		addrs = &c_nsset->hosts._buffer[i].inet;
 		if(addrs->_length > 0) {
 			n->nserver_addrs[i] = (char*)malloc(addrs->_length * IP_ADDR_LEN_SEP + 1);
@@ -1230,7 +1232,7 @@ whois_close_log_message(service_Logger service,
 		CORBA_exception_init(ev);
 
 		success = ccReg_Log_update_event_close((ccReg_Log) service, log_database_act_id, content, properties, ev);
-		
+
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
 			break;
