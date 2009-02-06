@@ -960,6 +960,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	c_props->_maximum = c_props->_length = 4;
 
 	c_props->_buffer = ccReg_LogProperties_allocbuf(c_props->_length);
+
 	if (c_props->_length != 0 && c_props->_buffer == NULL) goto error;
 	c_props->_release = CORBA_TRUE;
 
@@ -1020,7 +1021,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
-	c_props->_buffer[i].name = wrap_str("value");
+	c_props->_buffer[i].name = wrap_str("handle");
 	c_props->_buffer[i].value = wrap_str(wr->value);
 	c_props->_buffer[i].output = 0;
 	c_props->_buffer[i].child  = CORBA_FALSE;
