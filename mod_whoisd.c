@@ -624,14 +624,15 @@ static void *get_corba_service(conn_rec *c, char *name)
  * a CORBA call through CORBA backend and then processes data and
  * sends a whois answer.
  *
- * @param c   Connection.
- * @param sc  Server configuration.
- * @param wr  Whois request data
+ * @param c   		Connection.
+ * @param sc  		Server configuration.
+ * @param wr  		Whois request data
+ * @param log_entry_id  Entry ID from event logger
  *
  * @return    Result of processing.
  */
 static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
-		whois_request *wr)
+		whois_request *wr, ccReg_TID log_entry_id)
 {
 	int	rc;
 	int	i;
@@ -648,7 +649,6 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	unsigned len;
 
 	service = (service_Whois*)get_corba_service(c, sc->object);
-	// log_service = (service_Logger*)get_corba_service(c, "Logger_alias");
 	log_service = (service_Logger*)get_corba_service(c, sc->logger_object);
 
 	if(service == NULL || log_service == NULL) return APR_EGENERAL;
@@ -759,11 +759,11 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	errmsg[0] = '\0';
 
-	rc = whois_close_log_message(log_service, buf, NULL, errmsg);
+	rc = whois_close_log_message(log_service, buf, NULL, log_entry_id, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-			"Unknown error in CORBA backend (%d): %s",
+			"Couldn't finish log record - unknown error in CORBA backend (%d): %s",
 			rc, errmsg);
 		send_error(c, sc->disclaimer, 501);
 		return APR_SUCCESS;
@@ -908,7 +908,7 @@ static int getobjtype(int *bittype, const char *strtype)
 		*bittype |= T_REGISTRAR;
 	}
 
-	if (bittype == 0) {
+	if (*bittype == 0) {
 		/* unknown object type */
 		return 1;
 	} else {
@@ -942,15 +942,15 @@ wrap_str(const char *str)
  * @param c 		Incomnig connection.
  * @param content	Request string.
  * @param sc 		Server config.
+ * @param log_entry_id  Output of entry ID from event logger.
  */
-static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *content, whoisd_server_conf *sc)
+static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *content, whoisd_server_conf *sc, ccReg_TID *log_entry_id)
 {
 	ccReg_LogProperties *c_props = NULL;
 	service_Logger *service;
 	int 	rc, i, empty;
 	char	errmsg[MAX_ERROR_MSG_LEN], str[42];	// TODO
 
-	// service = (service_Logger*)get_corba_service(c, "Logger_alias");
 	service = (service_Logger*)get_corba_service(c, sc->logger_object);
 	if(service == NULL) return APR_EGENERAL;
 
@@ -1038,7 +1038,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	i++;
 
 	errmsg[0] = '\0';
-	rc = whois_log_new_message(service, c->remote_ip, content, c_props, errmsg);
+	rc = whois_log_new_message(service, c->remote_ip, content, c_props, log_entry_id, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
@@ -1081,6 +1081,7 @@ static int process_whois_connection(conn_rec *c)
 	int	 parse_error;    /* error when parsing options */
 	whois_request	*wr;     /* whois request structure */
 	server_rec	*s = c->base_server;
+	ccReg_TID log_entry_id;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
 
@@ -1293,7 +1294,7 @@ static int process_whois_connection(conn_rec *c)
 		wr->value = argv[os->ind + 1];
 	}
 
-	status = log_whois_request(wr, c, inputline_copy, sc);
+	status = log_whois_request(wr, c, inputline_copy, sc, &log_entry_id);
 
 	if (status != APR_SUCCESS)
 		return status;
@@ -1303,7 +1304,7 @@ static int process_whois_connection(conn_rec *c)
 		wr->type = (T_DOMAIN | T_NSSET | T_CONTACT | T_REGISTRAR | T_KEYSET);
 
 	/* process request */
-	status = process_whois_query(c, sc, wr);
+	status = process_whois_query(c, sc, wr, log_entry_id);
 
 	if (status != APR_SUCCESS)
 		return HTTP_INTERNAL_SERVER_ERROR;

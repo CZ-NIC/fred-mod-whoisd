@@ -54,9 +54,6 @@
 /** Call strdup on string only if it is not empty, otherwise return NULL. */
 #define NULL_STRDUP(src)	((*(src) == '\0') ? NULL : strdup(src))
 
-/** ID of a new entry in the logging database */
-static ccReg_TID log_database_act_id;
-
 /** maximum length of a string containing IP address
  */
 const int IP_ADDR_LEN = 39;
@@ -1150,6 +1147,7 @@ get_domain_by_attr(service_Whois service,
  * @param sourceIP   IP of the host which sent the request.
  * @param content    Raw content of the message.
  * @param properties Custom properties parsed from the content
+ * @param log_entry_id Output of ID from event logger
  * @param errmsg     Buffer for error message.
  * @return           Status.
  */
@@ -1158,6 +1156,7 @@ whois_log_new_message(service_Logger service,
 		const char *sourceIP,
 		const char *content,
 		ccReg_LogProperties *properties,
+		ccReg_TID *log_entry_id,
 		char *errmsg)
 {
 	CORBA_Environment	 ev[1];
@@ -1179,7 +1178,7 @@ whois_log_new_message(service_Logger service,
 
 		/* call logger method */
 
-		log_database_act_id = ccReg_Log_new_event((ccReg_Log) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, ev);
+		*log_entry_id = ccReg_Logger_new_event((ccReg_Logger) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1205,6 +1204,7 @@ whois_log_new_message(service_Logger service,
  * @param service    Whois CORBA object reference.
  * @param content    Raw content of the message.
  * @param properties Custom properties parsed from the content
+ * @param log_entry_id ID of the log entry to be close
  * @param errmsg     Buffer for error message.
  * @return           Status.
  */
@@ -1212,6 +1212,7 @@ int
 whois_close_log_message(service_Logger service,
 		const char *content,
 		ccReg_LogProperties *properties,
+		ccReg_TID log_entry_id,
 		char *errmsg)
 {
 	CORBA_Environment	 ev[1];
@@ -1231,7 +1232,7 @@ whois_close_log_message(service_Logger service,
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
 		CORBA_exception_init(ev);
 
-		success = ccReg_Log_update_event_close((ccReg_Log) service, log_database_act_id, content, properties, ev);
+		success = ccReg_Logger_update_event_close((ccReg_Logger) service, log_entry_id, content, properties, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))

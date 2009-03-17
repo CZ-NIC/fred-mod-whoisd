@@ -235,6 +235,7 @@ whois_log_new_message(service_Logger service,
 		const char *sourceIP,
 		const char *content,
 		ccReg_LogProperties *properties,
+		ccReg_TID *log_entry_id,
 		char *errmsg);
 
 
