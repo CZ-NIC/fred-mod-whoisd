@@ -48,6 +48,8 @@ BUFFSIZE   = 64000
 TESTDOMAIN = 'domain.cz'
 WHOIS_HOST = 'localhost'
 WHOIS_PORT = 22352
+IPV4_REGEX = '(?:(?:\d+?)\.){3}\d+'
+IPV6_REGEX = '\A(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\z'
 
 def usage():
 	print '%s [-v LEVEL | --verbose=LEVEL]' % sys.argv[0]
@@ -171,7 +173,10 @@ class Domain(object):
 class Nsset(object):
 	def __init__(self, str):
 		self.nsset = getval('nsset', '\S+', str)
-		self.nserver = getval('nserver', '([a-zA-Z0-9]+\.?)+', str, list=True)
+		# complete:	
+		# self.nserver = getval('nserver', '((?:[a-zA-Z0-9]+\.?)+)\s+\(((' + IPV4_REGEX + ')|(' + IPV6_REGEX + '),?\s*)+\)', str, list=True)
+		# simple solution:
+		self.nserver = getval('nserver', '((?:[a-zA-Z0-9]+\.?)+)\s+\(.+\)?', str, list=True)
 		self.tech_c = getval('tech-c', '\S+', str, list=True)
 		self.registrar = getval('registrar', '\S+', str)
 		self.created = gettimeval('created', str)
@@ -477,7 +482,7 @@ class ObjectSpecificTests(unittest.TestCase):
 				(rawans, ans))
 
 	def test_invNserver(self):
-		self.s.send('-r -i nserver ' + self.nsset.nserver[0] + '\r\n')
+		self.s.send('-r -i nserver ' + self.nsset.nserver[1] + '\r\n')
 		rawans = self.s.recv(BUFFSIZE)
 		ans = Answer(rawans)
 		found = False
@@ -528,8 +533,8 @@ if __name__ == '__main__':
 
 	# put together test suite
 	whois_suite = unittest.TestLoader().loadTestsFromTestCase(NotObjectSpecificTests)
-	whois_suite2 = unittest.TestLoader().loadTestsFromTestCase(ObjectSpecificTests)
-	whois_suite.addTest(whois_suite2)
+#	whois_suite2 = unittest.TestLoader().loadTestsFromTestCase(ObjectSpecificTests)
+#	whois_suite.addTest(whois_suite2)
 	#fm_suite.addTest(SearchTest())
 
 	# Run unittests
