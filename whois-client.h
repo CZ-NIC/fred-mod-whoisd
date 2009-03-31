@@ -57,10 +57,10 @@
  */
 #define MAX_OBJECT_COUNT 100
 
-/** reference to the whois corba service 
+/** reference to the whois corba service
  */
 typedef void *service_Whois;
-/** reference to the logger corba service 
+/** reference to the logger corba service
  */
 typedef void *service_Logger;
 
@@ -84,6 +84,13 @@ typedef enum {
 	SA_NSERVER,
 	SA_TECH_C
 }search_axis;
+
+/**
+ * For now, only one action type is performed by whois
+ */
+typedef enum {
+	Info = 1104,
+} whois_action_type;
 
 /**
  * Whois request structure.
@@ -126,10 +133,10 @@ typedef struct {
 /** Delegation signer record (part of keyset object) */
 typedef struct {
 	int	key_tag;	/**< Key tag for DNSKEY RR (RFC 4043 for details) */
-	int	alg;		/**< Algorithm type */ 
+	int	alg;		/**< Algorithm type */
 	int 	digest_type;	/**< Digest type (must be SHA-1) */
 	char   *digest;		/**< Digests in Delegation Signer records */
-	int	max_sig_life;	/**< Signature expiration period */	
+	int	max_sig_life;	/**< Signature expiration period */
 } keyset_dsrecord;
 
 /** DNSKey record (part of keyset object) */
@@ -148,7 +155,7 @@ typedef struct {
 
 	keyset_dsrecord *ds;	/**< Delegation signer records */
 	keyset_dnskey   *keys;  /**< DNS Keys */
-	
+
 	char 	*registrar;	/**< Handle of registrar. */
 	char 	*created;	/**< Date of keyset creation. */
 	char 	*changed;	/**< Last update of keyset. */

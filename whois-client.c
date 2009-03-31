@@ -1178,7 +1178,7 @@ whois_log_new_message(service_Logger service,
 
 		/* call logger method */
 
-		*log_entry_id = ccReg_Logger_new_event((ccReg_Logger) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, ev);
+		*log_entry_id = ccReg_Logger_new_event((ccReg_Logger) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, Info, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
