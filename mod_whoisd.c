@@ -946,7 +946,7 @@ wrap_str(const char *str)
  */
 static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *content, whoisd_server_conf *sc, ccReg_TID *log_entry_id)
 {
-	ccReg_LogProperties *c_props = NULL;
+	ccReg_RequestProperties *c_props = NULL;
 	service_Logger *service;
 	int 	rc, i, empty;
 	char	errmsg[MAX_ERROR_MSG_LEN], str[42];	// TODO
@@ -954,12 +954,12 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	service = (service_Logger*)get_corba_service(c, sc->logger_object);
 	if(service == NULL) return APR_EGENERAL;
 
-	c_props = ccReg_LogProperties__alloc();
+	c_props = ccReg_RequestProperties__alloc();
 	if (c_props == NULL) return HTTP_INTERNAL_SERVER_ERROR;
 
 	c_props->_maximum = c_props->_length = 4;
 
-	c_props->_buffer = ccReg_LogProperties_allocbuf(c_props->_length);
+	c_props->_buffer = ccReg_RequestProperties_allocbuf(c_props->_length);
 
 	if (c_props->_length != 0 && c_props->_buffer == NULL) goto error;
 	c_props->_release = CORBA_TRUE;

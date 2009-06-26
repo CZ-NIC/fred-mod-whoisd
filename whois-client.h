@@ -88,8 +88,11 @@ typedef enum {
 /**
  * For now, only one action type is performed by whois
  */
+/*
+ * This enum reflects database table request_type
+ */
 typedef enum {
-	Info = 1104,
+	Info = 1105,
 } whois_action_type;
 
 /**
@@ -241,7 +244,7 @@ int
 whois_log_new_message(service_Logger service,
 		const char *sourceIP,
 		const char *content,
-		ccReg_LogProperties *properties,
+		ccReg_RequestProperties *properties,
 		ccReg_TID *log_entry_id,
 		char *errmsg);
 

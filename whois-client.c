@@ -58,6 +58,11 @@
  */
 const int IP_ADDR_LEN = 39;
 
+
+/** code of the servie according to the database table `service'
+ */
+const int LC_UNIX_WHOIS = 0;
+
 // for IPv4:
 // const int IP_ADDR_LEN = 15;
 
@@ -1155,7 +1160,7 @@ int
 whois_log_new_message(service_Logger service,
 		const char *sourceIP,
 		const char *content,
-		ccReg_LogProperties *properties,
+		ccReg_RequestProperties *properties,
 		ccReg_TID *log_entry_id,
 		char *errmsg)
 {
@@ -1165,7 +1170,7 @@ whois_log_new_message(service_Logger service,
 	int 	 success;
 
 	if(properties == NULL) {
-		properties = ccReg_LogProperties__alloc();
+		properties = ccReg_RequestProperties__alloc();
 		if(properties == NULL) return CORBA_SERVICE_FAILED;
 
 		properties->_maximum = properties->_length = 0;
@@ -1178,7 +1183,7 @@ whois_log_new_message(service_Logger service,
 
 		/* call logger method */
 
-		*log_entry_id = ccReg_Logger_new_event((ccReg_Logger) service, sourceIP,  ccReg_LC_UNIX_WHOIS, content, properties, Info, ev);
+		*log_entry_id = ccReg_Logger_CreateRequest((ccReg_Logger) service, sourceIP,  LC_UNIX_WHOIS, content, properties, Info, 0, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1211,7 +1216,7 @@ whois_log_new_message(service_Logger service,
 int
 whois_close_log_message(service_Logger service,
 		const char *content,
-		ccReg_LogProperties *properties,
+		ccReg_RequestProperties *properties,
 		ccReg_TID log_entry_id,
 		char *errmsg)
 {
@@ -1221,7 +1226,7 @@ whois_close_log_message(service_Logger service,
 	int	 ret;
 
 	if(properties == NULL) {
-		properties = ccReg_LogProperties__alloc();
+		properties = ccReg_RequestProperties__alloc();
 		if(properties == NULL) return CORBA_SERVICE_FAILED;
 
 		properties->_maximum = properties->_length = 0;
@@ -1232,7 +1237,7 @@ whois_close_log_message(service_Logger service,
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
 		CORBA_exception_init(ev);
 
-		success = ccReg_Logger_update_event_close((ccReg_Logger) service, log_entry_id, content, properties, ev);
+		success = ccReg_Logger_CloseRequestLogin((ccReg_Logger) service, log_entry_id, content, properties, (ccReg_TID) 3000, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
