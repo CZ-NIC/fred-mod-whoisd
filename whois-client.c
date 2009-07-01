@@ -1237,7 +1237,7 @@ whois_close_log_message(service_Logger service,
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
 		CORBA_exception_init(ev);
 
-		success = ccReg_Logger_CloseRequestLogin((ccReg_Logger) service, log_entry_id, content, properties, (ccReg_TID) 3000, ev);
+		success = ccReg_Logger_CloseRequest((ccReg_Logger) service, log_entry_id, content, properties, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
