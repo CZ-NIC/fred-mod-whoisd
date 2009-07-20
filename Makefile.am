@@ -1,6 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 include $(top_srcdir)/am_doxygen.am
 
+testsdir=${datadir}/unittests
 CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la conf/02-fred-mod-whoisd-apache.conf
 
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
@@ -29,6 +30,11 @@ doc_DATA = @DX_DOCDIR@/html/*
 $(doc_DATA): doxygen-doc
 MOSTLYCLEANFILES = ${DX_CLEANFILES}
 endif
+
+if WITH_UNITTESTS
+tests_DATA 	  = unittests/*
+endif
+
 
 install-exec-local:
 	mkdir -p ${DESTDIR}${APACHE_LIBEXECDIR}; \

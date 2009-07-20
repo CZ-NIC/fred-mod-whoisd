@@ -120,10 +120,12 @@ am__vpath_adj = case $$p in \
     *) f=$$p;; \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(docdir)"
+am__installdirs = "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(docdir)" \
+	"$(DESTDIR)$(testsdir)"
 dist_pkgdataDATA_INSTALL = $(INSTALL_DATA)
 docDATA_INSTALL = $(INSTALL_DATA)
-DATA = $(dist_pkgdata_DATA) $(doc_DATA) $(noinst_DATA)
+testsDATA_INSTALL = $(INSTALL_DATA)
+DATA = $(dist_pkgdata_DATA) $(doc_DATA) $(noinst_DATA) $(tests_DATA)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -318,6 +320,7 @@ ACLOCAL_AMFLAGS = -I m4
 @DX_COND_doc_TRUE@    $(DX_CLEAN_LATEX)
 
 @DX_COND_doc_TRUE@@DX_COND_latex_TRUE@DX_CLEAN_LATEX = @DX_DOCDIR@/latex
+testsdir = ${datadir}/unittests
 CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la conf/02-fred-mod-whoisd-apache.conf
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
 noinst_DATA = mod_whoisd.la
@@ -337,6 +340,7 @@ libmodwhoisd_la_CFLAGS = ${INCL} -include ${IDL_H}
 libmodwhoisd_la_LIBADD = liborbwhoisd.la
 @DX_COND_html_TRUE@doc_DATA = @DX_DOCDIR@/html/*
 @DX_COND_html_TRUE@MOSTLYCLEANFILES = ${DX_CLEANFILES}
+@WITH_UNITTESTS_TRUE@tests_DATA = unittests/*
 all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -511,6 +515,23 @@ uninstall-docDATA:
 	  f=$(am__strip_dir) \
 	  echo " rm -f '$(DESTDIR)$(docdir)/$$f'"; \
 	  rm -f "$(DESTDIR)$(docdir)/$$f"; \
+	done
+install-testsDATA: $(tests_DATA)
+	@$(NORMAL_INSTALL)
+	test -z "$(testsdir)" || $(MKDIR_P) "$(DESTDIR)$(testsdir)"
+	@list='$(tests_DATA)'; for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  f=$(am__strip_dir) \
+	  echo " $(testsDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(testsdir)/$$f'"; \
+	  $(testsDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(testsdir)/$$f"; \
+	done
+
+uninstall-testsDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(tests_DATA)'; for p in $$list; do \
+	  f=$(am__strip_dir) \
+	  echo " rm -f '$(DESTDIR)$(testsdir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(testsdir)/$$f"; \
 	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
@@ -696,7 +717,7 @@ check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
 all-am: Makefile $(LTLIBRARIES) $(DATA) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(docdir)"; do \
+	for dir in "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(docdir)" "$(DESTDIR)$(testsdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: $(BUILT_SOURCES)
@@ -749,7 +770,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dist_pkgdataDATA install-docDATA
+install-data-am: install-dist_pkgdataDATA install-docDATA \
+	install-testsDATA
 
 install-dvi: install-dvi-am
 
@@ -788,7 +810,7 @@ ps: ps-am
 ps-am:
 
 uninstall-am: uninstall-dist_pkgdataDATA uninstall-docDATA \
-	uninstall-local
+	uninstall-local uninstall-testsDATA
 
 .MAKE: install-am install-strip
 
@@ -804,11 +826,12 @@ uninstall-am: uninstall-dist_pkgdataDATA uninstall-docDATA \
 	install-exec-am install-exec-local install-html \
 	install-html-am install-info install-info-am install-man \
 	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-dist_pkgdataDATA uninstall-docDATA uninstall-local
+	install-strip install-testsDATA installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-dist_pkgdataDATA uninstall-docDATA \
+	uninstall-local uninstall-testsDATA
 
 
 @DX_COND_doc_TRUE@@DX_COND_ps_TRUE@doxygen-ps: @DX_DOCDIR@/@PACKAGE@.ps
