@@ -1,7 +1,8 @@
 ACLOCAL_AMFLAGS = -I m4
 include $(top_srcdir)/am_doxygen.am
 
-testsdir=${datadir}/unittests
+testsdir=${LIBRARYDIR}/mod_whoisd/unittest
+# testsdir=${prefix}/lib/mod_whoisd/unittest
 CLEANFILES = ${IDL_ALL} .libs/libmodwhoisd *~ mod_whoisd.la conf/02-fred-mod-whoisd-apache.conf
 
 noinst_LTLIBRARIES = liborbwhoisd.la libmodwhoisd.la
