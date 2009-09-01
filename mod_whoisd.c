@@ -217,6 +217,9 @@ phone:        [optional]   [single]\n\
 address:      [mandatory]  [multiple]\n\
 ";
 
+void whois_log_status(conn_rec *c, service_Logger service, const char *content, 
+	ccReg_RequestProperties *properties, ccReg_TID log_entry_id);
+
 /** Print whois disclaimer into the bucket brigade
  */
 static void print_intro(apr_bucket_brigade *bb, conn_rec *c,
@@ -645,13 +648,18 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	service_Whois	 service;
 	service_Logger 	 log_service;
-	char 	*buf;
+	char 	*statmsg;
 	unsigned len;
 
 	service = (service_Whois*)get_corba_service(c, sc->object);
 	log_service = (service_Logger*)get_corba_service(c, sc->logger_object);
 
-	if(service == NULL || log_service == NULL) return APR_EGENERAL;
+	if(service == NULL) return APR_EGENERAL;
+
+	if(log_service == NULL) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Cannot obtain reference to fred-logd CORBA service, requests won't be logged");
+	}
 
 	objects = (general_object *)
 		apr_palloc(c->pool, MAX_OBJECT_COUNT * (sizeof *objects));
@@ -676,12 +684,14 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"CORBA service failed: %s", errmsg);
 		send_error(c, sc->disclaimer, 501);
+		whois_log_status(c, log_service, "CORBA service failed", NULL, log_entry_id);
 		return APR_SUCCESS;
 	}
 	else if (rc == CORBA_INTERNAL_ERROR) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"Internal error in CORBA backend: %s", errmsg);
 		send_error(c, sc->disclaimer, 501);
+		whois_log_status(c, log_service, "internal CORBA error", NULL, log_entry_id);
 		return APR_SUCCESS;
 	}
 	else if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
@@ -689,6 +699,8 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 			"Unknown error in CORBA backend (%d): %s",
 			rc, errmsg);
 		send_error(c, sc->disclaimer, 501);
+		whois_log_status(c, log_service, "unknown error", NULL, log_entry_id);
+
 		return APR_SUCCESS;
 	}
 
@@ -696,6 +708,8 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	if (objects[0].type == T_NONE) {
 		ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,"No entries found");
 		send_error(c, sc->disclaimer, 101);
+
+		whois_log_status(c, log_service, "not found", NULL, log_entry_id);
 		return APR_SUCCESS;
 	}
 
@@ -734,6 +748,9 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	// ------ call fred-logd
 
+	/*
+ 	* we're not loggin the answer anymore
+ 	*
 	#define MAX_BUF_LEN 512
 	buf = apr_palloc(c->pool, MAX_BUF_LEN + 1);
 	if (buf == NULL) {
@@ -744,7 +761,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 
-	/* convert brigade into string */
+	// convert brigade into string 
 	len = MAX_BUF_LEN;
 	status = apr_brigade_flatten(bb, buf, &len);
 	if (status != APR_SUCCESS) {
@@ -755,21 +772,11 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		return HTTP_INTERNAL_SERVER_ERROR;
 	}
 	buf[MAX_BUF_LEN] = '\0';
+	*/
 
+	whois_log_status(c, log_service, "success", NULL, log_entry_id);
 
-	errmsg[0] = '\0';
-
-	rc = whois_close_log_message(log_service, buf, NULL, log_entry_id, errmsg);
-
-	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-			"Couldn't finish log record - unknown error in CORBA backend (%d): %s",
-			rc, errmsg);
-		send_error(c, sc->disclaimer, 501);
-		return APR_SUCCESS;
-	}
-
-	// ----------- logd
+	// end ----------- logd
 
 	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
 			"%d object(s) returned for query", i);
@@ -787,6 +794,23 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	}
 
 	return APR_SUCCESS;
+}
+
+void whois_log_status(conn_rec *c, service_Logger service,
+		const char *content,
+		ccReg_RequestProperties *properties,
+		ccReg_TID log_entry_id) 
+{
+	char errmsg[MAX_ERROR_MSG_LEN];
+	int lrc;
+
+	errmsg[0] = '\0';
+	lrc = whois_close_log_message(service, content, properties, log_entry_id);
+	if (lrc != CORBA_OK && lrc != CORBA_OK_LIMIT) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+			"Couldn't finish log record - unknown error in CORBA backend (%d): %s",
+			lrc, errmsg);
+	}
 }
 
 /**
@@ -952,7 +976,14 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	char	errmsg[MAX_ERROR_MSG_LEN], str[42];	// TODO
 
 	service = (service_Logger*)get_corba_service(c, sc->logger_object);
-	if(service == NULL) return APR_EGENERAL;
+	if(service == NULL) {
+		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+						"Couldn't obtain reference to logger object.");
+		*log_entry_id = 0;
+		return APR_SUCCESS;
+	//  it's not a critical error if fred-logd isn't available
+	//	return APR_EGENERAL;
+	}
 
 	c_props = ccReg_RequestProperties__alloc();
 	if (c_props == NULL) return HTTP_INTERNAL_SERVER_ERROR;
@@ -961,7 +992,11 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 
 	c_props->_buffer = ccReg_RequestProperties_allocbuf(c_props->_length);
 
-	if (c_props->_length != 0 && c_props->_buffer == NULL) goto error;
+	if (c_props->_length != 0 && c_props->_buffer == NULL) {
+		CORBA_free(c_props);
+		return APR_SUCCESS;
+	}
+
 	c_props->_release = CORBA_TRUE;
 
 	i = 0;
@@ -1111,8 +1146,8 @@ static int process_whois_connection(conn_rec *c)
 
 	/* make a copy of the input line (for logging) */
 	inputline_copy = apr_palloc(c->pool, MAX_WHOIS_REQUEST_LENGTH + 1);
-        strncpy(inputline_copy, inputline, MAX_WHOIS_REQUEST_LENGTH);
-        inputline_copy[MAX_WHOIS_REQUEST_LENGTH] = '\0';
+    strncpy(inputline_copy, inputline, MAX_WHOIS_REQUEST_LENGTH);
+    inputline_copy[MAX_WHOIS_REQUEST_LENGTH] = '\0';
 
 	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
 			"Whois input line: %s", inputline);

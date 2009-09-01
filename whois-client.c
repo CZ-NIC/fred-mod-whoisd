@@ -1225,6 +1225,10 @@ whois_close_log_message(service_Logger service,
 	int	 retr;  /* retry counter */
 	int	 ret;
 
+	// in this case request logging is practically turned of and if there should be an error message,
+	// it was already generated before
+	if(service == NULL || log_entry_id == 0) return CORBA_OK;	
+
 	if(properties == NULL) {
 		properties = ccReg_RequestProperties__alloc();
 		if(properties == NULL) return CORBA_SERVICE_FAILED;
