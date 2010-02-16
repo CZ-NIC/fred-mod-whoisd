@@ -1,3 +1,7 @@
+2010-02-16 Juraj Vicenik (3.2.0)
+
+	* Audit (Logger client) component integration
+
 2009-02-05 Juraj Vicenik (version 3.1.1)
 
     * Added glue information (ip adresses) to nameservers
