@@ -652,14 +652,20 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	unsigned len;
 
 	service = (service_Whois*)get_corba_service(c, sc->object);
-	log_service = (service_Logger*)get_corba_service(c, sc->logger_object);
 
-	if(service == NULL) return APR_EGENERAL;
+        if (service == NULL) return APR_EGENERAL;
 
-	if(log_service == NULL) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-			"Cannot obtain reference to fred-logd CORBA service, requests won't be logged");
-	}
+        if (sc->logger_object == NULL || *sc->logger_object == '\0') {
+            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, "Reference to logger object not set in config");
+            log_service = NULL;
+        } else {
+            log_service = (service_Logger*) get_corba_service(c, sc->logger_object);
+
+            if (log_service == NULL) {
+                ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+                        "Cannot obtain reference to fred-logd CORBA service, requests won't be logged");
+            }
+        }
 
 	objects = (general_object *)
 		apr_palloc(c->pool, MAX_OBJECT_COUNT * (sizeof *objects));
@@ -975,15 +981,20 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	int 	rc, i, empty;
 	char	errmsg[MAX_ERROR_MSG_LEN], str[42];	// TODO
 
-	service = (service_Logger*)get_corba_service(c, sc->logger_object);
-	if(service == NULL) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+        if (sc->logger_object == NULL || *sc->logger_object == '\0') {
+            // don't mention the config file anymore, it was already logged before
+            // ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, "Reference to logger object not set in config");
+            return APR_SUCCESS;
+        } else {
+            service = (service_Logger*) get_corba_service(c, sc->logger_object);
+
+            if (service == NULL) {
+                ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 						"Couldn't obtain reference to logger object.");
 		*log_entry_id = 0;
 		return APR_SUCCESS;
-	//  it's not a critical error if fred-logd isn't available
-	//	return APR_EGENERAL;
-	}
+            }
+        }
 
 	c_props = ccReg_RequestProperties__alloc();
 	if (c_props == NULL) return HTTP_INTERNAL_SERVER_ERROR;
