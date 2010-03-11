@@ -811,7 +811,7 @@ void whois_log_status(conn_rec *c, service_Logger service,
 	int lrc;
 
 	errmsg[0] = '\0';
-	lrc = whois_close_log_message(service, content, properties, log_entry_id);
+	lrc = whois_close_log_message(service, content, properties, log_entry_id, errmsg);
 	if (lrc != CORBA_OK && lrc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"Couldn't finish log record - unknown error in CORBA backend (%d): %s",
