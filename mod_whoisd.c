@@ -813,8 +813,8 @@ void whois_log_status(conn_rec *c, service_Logger service,
 	errmsg[0] = '\0';
 	lrc = whois_close_log_message(service, content, properties, log_entry_id, errmsg);
 	if (lrc != CORBA_OK && lrc != CORBA_OK_LIMIT) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-			"Couldn't finish log record - unknown error in CORBA backend (%d): %s",
+		ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c,
+			"Couldn't finish log record - unknown error in CORBA logger backend (%d): %s",
 			lrc, errmsg);
 	}
 }
@@ -967,6 +967,8 @@ wrap_str(const char *str)
 
 /**
  * Call fred-logd
+ * now it mostly returns APR_SUCCESS because logger failure isn't fatal to whois itself
+ * only if memory allocation fails, it returns HTTP_INTERNAL_SERVER_ERROR
  *
  * @param wr		Request data.
  * @param c 		Incomnig connection.
@@ -1087,10 +1089,12 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	rc = whois_log_new_message(service, c->remote_ip, content, c_props, log_entry_id, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
-		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-			"Unknown error in CORBA backend (%d): %s",
+		ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c,
+			"Unknown error in CORBA logger backend (%d): %s",
 			rc, errmsg);
-		send_error(c, sc->disclaimer, 501);
+                return APR_SUCCESS;
+                // logging shouldn't be mandatory 
+		// send_error(c, sc->disclaimer, 501);
 	}
 
 	error:
