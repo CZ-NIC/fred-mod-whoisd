@@ -1,3 +1,8 @@
+2010-03-12 Juraj Vicenik (3.2.1)
+	
+	* bugfixes
+	* Logger usage is not mandatory
+
 2010-02-16 Juraj Vicenik (3.2.0)
 
 	* Audit (Logger client) component integration
