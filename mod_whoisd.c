@@ -218,7 +218,7 @@ address:      [mandatory]  [multiple]\n\
 ";
 
 void whois_log_status(conn_rec *c, service_Logger service, const char *content, 
-	ccReg_RequestProperties *properties, ccReg_TID log_entry_id);
+	ccReg_RequestProperties *properties, ccReg_TID log_entry_id, CORBA_long result_code);
 
 /** Print whois disclaimer into the bucket brigade
  */
@@ -648,8 +648,8 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	service_Whois	 service;
 	service_Logger 	 log_service;
-	char 	*statmsg;
-	unsigned len;
+	/*char 	*statmsg;*/
+	/*unsigned len;*/
 
 	service = (service_Whois*)get_corba_service(c, sc->object);
 
@@ -690,14 +690,14 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"CORBA service failed: %s", errmsg);
 		send_error(c, sc->disclaimer, 501);
-		whois_log_status(c, log_service, "CORBA service failed", NULL, log_entry_id);
+		whois_log_status(c, log_service, "CORBA service failed", NULL, log_entry_id, 501);
 		return APR_SUCCESS;
 	}
 	else if (rc == CORBA_INTERNAL_ERROR) {
 		ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 			"Internal error in CORBA backend: %s", errmsg);
 		send_error(c, sc->disclaimer, 501);
-		whois_log_status(c, log_service, "internal CORBA error", NULL, log_entry_id);
+		whois_log_status(c, log_service, "internal CORBA error", NULL, log_entry_id, 501);
 		return APR_SUCCESS;
 	}
 	else if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
@@ -705,7 +705,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 			"Unknown error in CORBA backend (%d): %s",
 			rc, errmsg);
 		send_error(c, sc->disclaimer, 501);
-		whois_log_status(c, log_service, "unknown error", NULL, log_entry_id);
+		whois_log_status(c, log_service, "unknown error", NULL, log_entry_id, 501);
 
 		return APR_SUCCESS;
 	}
@@ -715,7 +715,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 		ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,"No entries found");
 		send_error(c, sc->disclaimer, 101);
 
-		whois_log_status(c, log_service, "not found", NULL, log_entry_id);
+		whois_log_status(c, log_service, "not found", NULL, log_entry_id, 101);
 		return APR_SUCCESS;
 	}
 
@@ -780,7 +780,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	buf[MAX_BUF_LEN] = '\0';
 	*/
 
-	whois_log_status(c, log_service, "success", NULL, log_entry_id);
+	whois_log_status(c, log_service, "success", NULL, log_entry_id, 0);/*ok*/
 
 	// end ----------- logd
 
@@ -805,13 +805,14 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 void whois_log_status(conn_rec *c, service_Logger service,
 		const char *content,
 		ccReg_RequestProperties *properties,
-		ccReg_TID log_entry_id) 
+		ccReg_TID log_entry_id,
+		CORBA_long result_code)
 {
 	char errmsg[MAX_ERROR_MSG_LEN];
 	int lrc;
 
 	errmsg[0] = '\0';
-	lrc = whois_close_log_message(service, content, properties, log_entry_id, errmsg);
+	lrc = whois_close_log_message(service, content, properties, log_entry_id, result_code, errmsg);
 	if (lrc != CORBA_OK && lrc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c,
 			"Couldn't finish log record - unknown error in CORBA logger backend (%d): %s",

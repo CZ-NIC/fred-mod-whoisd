@@ -1167,7 +1167,7 @@ whois_log_new_message(service_Logger service,
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
 	int	 ret;
-	int 	 success;
+	/*int 	 success;*/
 
 	if(properties == NULL) {
 		properties = ccReg_RequestProperties__alloc();
@@ -1218,6 +1218,7 @@ whois_close_log_message(service_Logger service,
 		const char *content,
 		ccReg_RequestProperties *properties,
 		ccReg_TID log_entry_id,
+		CORBA_long result_code,
 		char *errmsg)
 {
 	CORBA_Environment	 ev[1];
@@ -1241,7 +1242,7 @@ whois_close_log_message(service_Logger service,
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
 		CORBA_exception_init(ev);
 
-		success = ccReg_Logger_CloseRequest((ccReg_Logger) service, log_entry_id, content, properties, ev);
+		success = ccReg_Logger_CloseRequest((ccReg_Logger) service, log_entry_id, content, properties, result_code, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
