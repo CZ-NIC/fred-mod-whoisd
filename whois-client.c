@@ -1167,7 +1167,7 @@ whois_log_new_message(service_Logger service,
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
 	int	 ret;
-	/*int 	 success;*/
+        ccReg_Logger_ObjectReferences *objrefs;
 
 	if(properties == NULL) {
 		properties = ccReg_RequestProperties__alloc();
@@ -1176,6 +1176,17 @@ whois_log_new_message(service_Logger service,
 		properties->_maximum = properties->_length = 0;
 	}
 
+        if(objrefs == NULL) {
+                objrefs = ccReg_Logger_ObjectReferences__alloc();
+                if(objrefs == NULL) {
+                        CORBA_free(properties);
+			return CORBA_SERVICE_FAILED;
+		}
+
+                objrefs->_maximum = objrefs->_length = 0;
+        }
+ 
+
 	/* retry loop */
 	for (retr = 0; retr < MAX_RETRIES; retr++) {
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
@@ -1183,7 +1194,7 @@ whois_log_new_message(service_Logger service,
 
 		/* call logger method */
 
-		*log_entry_id = ccReg_Logger_CreateRequest((ccReg_Logger) service, sourceIP,  LC_UNIX_WHOIS, content, properties, Info, 0, ev);
+		*log_entry_id = ccReg_Logger_createRequest((ccReg_Logger) service, sourceIP,  LC_UNIX_WHOIS, content, properties, objrefs, Info, 0, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1191,6 +1202,10 @@ whois_log_new_message(service_Logger service,
 		usleep(RETR_SLEEP);
 	}
 
+        CORBA_free(properties);
+        CORBA_free(objrefs);
+
+        // TODO handle user-define exceptions from _Logger.idl
 	if (raised_exception(ev)) {
 		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
 		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
@@ -1199,8 +1214,7 @@ whois_log_new_message(service_Logger service,
 	}
 	CORBA_exception_free(ev);
 
-	ret = CORBA_OK;
-	return ret;
+	return CORBA_OK;
 }
 
 /**
@@ -1222,9 +1236,8 @@ whois_close_log_message(service_Logger service,
 		char *errmsg)
 {
 	CORBA_Environment	 ev[1];
-	CORBA_boolean 		success;
 	int	 retr;  /* retry counter */
-	int	 ret;
+        ccReg_Logger_ObjectReferences *objrefs;
 
 	// in this case request logging is practically turned of and if there should be an error message,
 	// it was already generated before
@@ -1237,12 +1250,22 @@ whois_close_log_message(service_Logger service,
 		properties->_maximum = properties->_length = 0;
 	}
 
+        if(objrefs == NULL) {
+                objrefs = ccReg_Logger_ObjectReferences__alloc();
+                if(objrefs == NULL) {
+                        CORBA_free(properties);
+			return CORBA_SERVICE_FAILED;
+		}
+
+                objrefs->_maximum = objrefs->_length = 0;
+        }
+
 	/* retry loop */
 	for (retr = 0; retr < MAX_RETRIES; retr++) {
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
 		CORBA_exception_init(ev);
 
-		success = ccReg_Logger_CloseRequest((ccReg_Logger) service, log_entry_id, content, properties, result_code, ev);
+                ccReg_Logger_closeRequest((ccReg_Logger) service, log_entry_id, content, properties, objrefs, result_code, 0, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1250,6 +1273,10 @@ whois_close_log_message(service_Logger service,
 		usleep(RETR_SLEEP);
 	}
 
+        CORBA_free(properties);
+        CORBA_free(objrefs);
+
+		// TODO handle exceptions ret = CORBA_UNKNOWN_ERROR;
 	if (raised_exception(ev)) {
 		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
 		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
@@ -1258,13 +1285,7 @@ whois_close_log_message(service_Logger service,
 	}
 	CORBA_exception_free(ev);
 
-	if(success == CORBA_FALSE) {
-		ret = CORBA_UNKNOWN_ERROR;
-	} else {
-		ret = CORBA_OK;
-	}
-
-	return ret;
+        return CORBA_OK;
 }
 
 /** Call the right function for the specific object type / search axis / handle
