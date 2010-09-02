@@ -1167,7 +1167,7 @@ whois_log_new_message(service_Logger service,
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
 	int	 ret;
-        ccReg_Logger_ObjectReferences *objrefs;
+        ccReg_ObjectReferences *objrefs;
 
 	if(properties == NULL) {
 		properties = ccReg_RequestProperties__alloc();
@@ -1177,7 +1177,7 @@ whois_log_new_message(service_Logger service,
 	}
 
         if(objrefs == NULL) {
-                objrefs = ccReg_Logger_ObjectReferences__alloc();
+                objrefs = ccReg_ObjectReferences__alloc();
                 if(objrefs == NULL) {
                         CORBA_free(properties);
 			return CORBA_SERVICE_FAILED;
@@ -1237,7 +1237,7 @@ whois_close_log_message(service_Logger service,
 {
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
-        ccReg_Logger_ObjectReferences *objrefs;
+        ccReg_ObjectReferences *objrefs;
 
 	// in this case request logging is practically turned of and if there should be an error message,
 	// it was already generated before
@@ -1251,7 +1251,7 @@ whois_close_log_message(service_Logger service,
 	}
 
         if(objrefs == NULL) {
-                objrefs = ccReg_Logger_ObjectReferences__alloc();
+                objrefs = ccReg_ObjectReferences__alloc();
                 if(objrefs == NULL) {
                         CORBA_free(properties);
 			return CORBA_SERVICE_FAILED;
