@@ -176,6 +176,8 @@ typedef struct {
 	char	 *registrar;   /**< Handle of registrar. */
 	char	 *created;     /**< Date of contact creation. */
 	char	 *changed;     /**< Last update of contact. */
+        int      disclose;     /** Whether this contact is published: 1 for true 
+                                * if this flag is set, only contact field is allocated*/
 }obj_contact;
 
 /** Structure holding registrar data. */

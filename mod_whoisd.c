@@ -525,18 +525,25 @@ static void print_contact_object(apr_bucket_brigade *bb, obj_contact *c)
 #define SAFE_PRINTF(fmt, str) \
 	if (str != NULL) apr_brigade_printf(bb, NULL, NULL, fmt, str);
 
-	SAFE_PRINTF("contact:      %s\n", c->contact);
-	SAFE_PRINTF("org:          %s\n", c->org);
-	SAFE_PRINTF("name:         %s\n", c->name);
-	for (i = 0; c->address[i] != NULL; i++) {
-	SAFE_PRINTF("address:      %s\n", c->address[i]);
-	}
-	SAFE_PRINTF("phone:        %s\n", c->phone);
-	SAFE_PRINTF("fax-no:       %s\n", c->fax_no);
-	SAFE_PRINTF("e-mail:       %s\n", c->e_mail);
-	SAFE_PRINTF("registrar:    %s\n", c->registrar);
-	SAFE_PRINTF("created:      %s\n", c->created);
-	SAFE_PRINTF("changed:      %s\n", c->changed);
+        SAFE_PRINTF("contact:      %s\n", c->contact);
+
+        if(c->disclose == 1) {
+            SAFE_PRINTF("org:          %s\n", c->org);
+            SAFE_PRINTF("name:         %s\n", c->name);
+            for (i = 0; c->address[i] != NULL; i++) {
+            SAFE_PRINTF("address:      %s\n", c->address[i]);
+            }
+            SAFE_PRINTF("phone:        %s\n", c->phone);
+            SAFE_PRINTF("fax-no:       %s\n", c->fax_no);
+            SAFE_PRINTF("e-mail:       %s\n", c->e_mail);
+            SAFE_PRINTF("registrar:    %s\n", c->registrar);
+            SAFE_PRINTF("created:      %s\n", c->created);
+            SAFE_PRINTF("changed:      %s\n", c->changed);
+        } else {
+            apr_brigade_printf(bb, NULL, NULL, "%s\n",
+                        "status:       REGISTERED");
+        }
+
 	apr_brigade_puts(bb, NULL, NULL, "\n");
 
 #undef SAFE_PRINTF
