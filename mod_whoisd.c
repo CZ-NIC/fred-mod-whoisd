@@ -1098,9 +1098,6 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 		// send_error(c, sc->disclaimer, 501);
 	}
 
-	error:
-	CORBA_free(c_props);
-
 	return APR_SUCCESS;
 }
 
