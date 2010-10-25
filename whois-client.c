@@ -1256,7 +1256,7 @@ whois_close_log_message(service_Logger service,
 {
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
-        ccReg_ObjectReferences *objrefs;
+        ccReg_ObjectReferences *objrefs=NULL;
 
 	// in this case request logging is practically turned of and if there should be an error message,
 	// it was already generated before
