@@ -38,6 +38,11 @@
 #include "config.h"
 #endif
 
+/** Handle of MojeID registrar - must match in server.conf in backend */
+#define MOJEID_REG_HANDLE "REG-MOJEID"
+/** ID of object status 'Linked' */
+#define ID_STATUS_OBJ_LINKED 16
+
 /** A shortcut for testing of CORBA exception appearence. */
 #define raised_exception(ev)	((ev)->_major != CORBA_NO_EXCEPTION)
 /** Max # of retries when COMM_FAILURE exception during CORBA call occurs. */
@@ -349,21 +354,28 @@ get_contact_by_handle(service_Whois service, const char *handle,
         if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free)) {
 
                 int i = 0;
-                short status = 0;
-                for (i=0;i<c_contact->statusList._length;i++) {
-                    status = c_contact->statusList._buffer[i];
-
-                    if(status==16) break;
-                }
 
                 objects[*index_free].type = T_CONTACT;
 		c = &objects[*index_free].obj.c;
 		c->contact = NULL_STRDUP(c_contact->handle);
 
-                if(status==16) {
-                // yes, this status can be published 
-                    c->disclose = 1;
+                c->disclose = 0;
 
+                // don't show data for contacts which are under MojeID registrar and 
+                // at the same time 
+                if(strncmp(c_contact->registrarHandle, MOJEID_REG_HANDLE, strlen(MOJEID_REG_HANDLE) )) {
+                    c->disclose = 1;
+                } else {
+                    for (i=0;i<c_contact->statusList._length;i++) {
+                        if (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_LINKED) {
+                            c->disclose = 1;
+                            break;
+                        }
+                    }
+                }
+
+                
+                if(c->disclose != 0) {
                     /* copy contact data according to disclose flags */
                     if (c_contact->discloseOrganization)
                             c->org = NULL_STRDUP(c_contact->organization);
