@@ -92,6 +92,7 @@ typedef struct {
 	char	*disclaimer;             /**< Disclaimer as a string. */
 	char	*object;                 /**< Name of whois object. */
 	char	*logger_object;          /**< Name of logger object. */
+    char    *mojeid_reg_handle;      /**< Name of mojeid registrar. */
 } whoisd_server_conf;
 
 #if AP_SERVER_MINORVERSION_NUMBER == 0
@@ -648,6 +649,7 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	int	i;
 	char	timebuf[TIME_BUFFER_LENGTH]; /* buffer for time of resp. gen. */
 	char	errmsg[MAX_ERROR_MSG_LEN];
+	char    empty_mojeid_reg_handle[1]={0};
 	general_object	*objects; /* result array */
 	apr_time_t	 time1, time2; /* meassuring of CORBA server latency */
 	apr_status_t	 status;
@@ -679,7 +681,8 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 	errmsg[0] = '\0';
 	/* We will meassure the time the corba function call takes. */
 	time1 = apr_time_now();
-	rc = whois_corba_call(service, wr, objects, timebuf, errmsg);
+	rc = whois_corba_call(service, wr, objects, timebuf, errmsg
+	        , (sc->mojeid_reg_handle ? sc->mojeid_reg_handle : empty_mojeid_reg_handle) );
 	time2 = apr_time_now();
 
 	ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
@@ -1639,6 +1642,42 @@ static const char *set_whois_object(cmd_parms *cmd, void *dummy,
 	return NULL;
 }
 
+/**
+ * Routine sets handle of mojeid registrar .
+ *
+ * @param cmd     Command.
+ * @param dummy   Not used arg.
+ * @param name    The value.
+ * @return        NULL if OK, otherwise a string.
+ */
+static const char *set_mojeid_reg_handle(cmd_parms *cmd, void *dummy,
+        const char *name)
+{
+    const char *err;
+    server_rec *s = cmd->server;
+    whoisd_server_conf *sc = (whoisd_server_conf *)
+            ap_get_module_config(s->module_config, &whoisd_module);
+
+    err = ap_check_cmd_context(cmd, NOT_IN_DIR_LOC_FILE|NOT_IN_LIMIT);
+    if (err) return err;
+
+    /*
+     * catch double definition of filename
+     * that's not serious fault so we will just print log message
+     */
+    if (sc->mojeid_reg_handle != NULL) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, s,
+            "mod_whoisd: more than one definition of mojeid "
+            "registrar handle. All but the first one will be ignored");
+        return NULL;
+    }
+
+    sc->mojeid_reg_handle = apr_pstrdup(cmd->pool, name);
+
+    return NULL;
+}
+
+
 /** Structure defining configuration options for whoisd module. */
 static const command_rec whoisd_cmds[] = {
 	AP_INIT_FLAG("WhoisProtocol", set_whois_protocol, NULL, RSRC_CONF,
@@ -1652,6 +1691,9 @@ static const command_rec whoisd_cmds[] = {
 	AP_INIT_TAKE1("WhoisLogdObject", set_logger_object, NULL, RSRC_CONF,
 			 "Name under which the fred-logd object is known to "
 			 "nameserver. Default is \"Logger\"."),
+    AP_INIT_TAKE1("WhoisMojeidReg", set_mojeid_reg_handle, NULL, RSRC_CONF,
+             "Mojeid registrar handle. "
+             "Default is empty \"\"."),
 	{ NULL }
 };
 

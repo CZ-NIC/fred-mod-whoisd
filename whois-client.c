@@ -38,8 +38,9 @@
 #include "config.h"
 #endif
 
-/** Handle of MojeID registrar - must match in server.conf in backend */
-#define MOJEID_REG_HANDLE "REG-MOJEID"
+/** Max registrar handle length of MojeID registrar */
+#define REG_HANDLE_MAX_LEN 1024
+
 /** ID of object status 'Linked' */
 #define ID_STATUS_OBJ_LINKED 16
 
@@ -311,11 +312,13 @@ get_registrar_by_handle(service_Whois service, const char *handle,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
 get_contact_by_handle(service_Whois service, const char *handle,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char* reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_ContactDetail	*c_contact; /* contact detail */
@@ -363,7 +366,7 @@ get_contact_by_handle(service_Whois service, const char *handle,
 
                 // don't show data for contacts which are under MojeID registrar and 
                 // at the same time 
-                if(strncmp(c_contact->registrarHandle, MOJEID_REG_HANDLE, strlen(MOJEID_REG_HANDLE) )) {
+                if(strncmp(c_contact->registrarHandle, reg_mojeid_handle, REG_HANDLE_MAX_LEN )) {
                     c->disclose = 1;
                 } else {
                     for (i=0;i<c_contact->statusList._length;i++) {
@@ -556,11 +559,13 @@ copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
  * @param objects     Array of results.
  * @param index_free  First free index in array of results.
  * @param errmsg      Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return            Status.
  */
 static int
 recurse_nsset(service_Whois service, int rec, obj_nsset *n,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char *reg_mojeid_handle)
 {
 	int	 i, ret;
 
@@ -572,7 +577,7 @@ recurse_nsset(service_Whois service, int rec, obj_nsset *n,
 	/* recursion on tech_c */
 	for (i = 0; n->tech_c[i] != NULL; i++) {
 		ret = get_contact_by_handle(service, n->tech_c[i],
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK) return ret;
 	}
 
@@ -588,11 +593,13 @@ recurse_nsset(service_Whois service, int rec, obj_nsset *n,
  * @param objects     Array of results.
  * @param index_free  First free index in array of results.
  * @param errmsg      Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return            Status.
  */
 static int
 recurse_keyset(service_Whois service, int rec, obj_keyset *k,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char * reg_mojeid_handle)
 {
 	int	 i, ret;
 
@@ -604,7 +611,7 @@ recurse_keyset(service_Whois service, int rec, obj_keyset *k,
 	/* recursion on tech_c */
 	for (i = 0; k->tech_c[i] != NULL; i++) {
 		ret = get_contact_by_handle(service, k->tech_c[i],
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK) return ret;
 	}
 
@@ -620,11 +627,13 @@ recurse_keyset(service_Whois service, int rec, obj_keyset *k,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
 get_nsset_by_handle(service_Whois service, const char *handle, int rec,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char *reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_NSSetDetail	*c_nsset; /* nsset detail */
@@ -664,7 +673,7 @@ get_nsset_by_handle(service_Whois service, const char *handle, int rec,
 		CORBA_free(c_nsset);
 
 		return recurse_nsset(service, rec, &objects[*index_free - 1].obj.n,
-			objects, index_free, errmsg);
+			objects, index_free, errmsg, reg_mojeid_handle);
 	} else {
 		CORBA_free(c_nsset);
 		return CORBA_OK;
@@ -680,11 +689,13 @@ get_nsset_by_handle(service_Whois service, const char *handle, int rec,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
 get_keyset_by_handle(service_Whois service, const char *handle, int rec,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char *reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_KeySetDetail	*c_keyset; /* keyset detail */
@@ -723,7 +734,7 @@ get_keyset_by_handle(service_Whois service, const char *handle, int rec,
 		copy_keyset(&objects[(*index_free)++], c_keyset);
 		CORBA_free(c_keyset);
 		return recurse_keyset(service, rec, &objects[*index_free - 1].obj.k,
-			objects, index_free, errmsg);
+			objects, index_free, errmsg, reg_mojeid_handle);
 
 	} else {
 
@@ -745,6 +756,7 @@ get_keyset_by_handle(service_Whois service, const char *handle, int rec,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
@@ -753,7 +765,8 @@ get_nsset_by_attr(service_Whois service,
 		ccReg_NSSetInvKeyType attr,
 		int rec,
 		general_object *objects,
-		int *index_free, char *errmsg)
+		int *index_free, char *errmsg,
+		char *reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_NSSetDetails	*c_nssets; /* nsset details */
@@ -792,7 +805,7 @@ get_nsset_by_attr(service_Whois service,
 		copy_nsset(&objects[(*index_free)++], &c_nssets->_buffer[i]);
 		ret = recurse_nsset(service, rec,
 				&objects[(*index_free) - 1].obj.n,
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK)
 			break;
 	}
@@ -813,6 +826,7 @@ get_nsset_by_attr(service_Whois service,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
@@ -821,7 +835,8 @@ get_keyset_by_attr(service_Whois service,
 		ccReg_KeySetInvKeyType attr,
 		int rec,
 		general_object *objects,
-		int *index_free, char *errmsg)
+		int *index_free, char *errmsg,
+		char* reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_KeySetDetails	*c_keysets; /* keyset details */
@@ -860,7 +875,7 @@ get_keyset_by_attr(service_Whois service,
 		copy_keyset(&objects[(*index_free)++], &c_keysets->_buffer[i]);
 		ret = recurse_keyset(service, rec,
 				&objects[(*index_free) - 1].obj.k,
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK)
 			break;
 	}
@@ -987,11 +1002,13 @@ copy_domain(general_object *obj, ccReg_DomainDetail *c_domain)
  * @param objects     Array of results.
  * @param index_free  First free index in array of results.
  * @param errmsg      Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return            Status.
  */
 static int
 recurse_domain(service_Whois service, int rec, obj_domain *d,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char* reg_mojeid_handle)
 {
 	int	 i, ret;
 
@@ -1003,7 +1020,7 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 	/* recursion on registrant */
 	if (d->registrant != NULL) {
 		ret = get_contact_by_handle(service, d->registrant,
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK) return ret;
 	}
 
@@ -1013,7 +1030,7 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 	/* recursion on admin_c */
 	for (i = 0; d->admin_c[i] != NULL; i++) {
 		ret = get_contact_by_handle(service, d->admin_c[i],
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK) return ret;
 	}
 
@@ -1023,7 +1040,7 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 	/* recursion on temp_c */
 	for (i = 0; d->temp_c[i] != NULL; i++) {
 		ret = get_contact_by_handle(service, d->temp_c[i],
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK) return ret;
 	}
 
@@ -1033,14 +1050,14 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
 	/* recursion on nsset */
 	if (d->nsset != NULL) {
 		ret = get_nsset_by_handle(service, d->nsset, rec,
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK) return ret;
 	}
 
 	/* recursion on keyset */
 	if (d->keyset != NULL) {
 		ret = get_keyset_by_handle(service, d->keyset, rec,
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if(ret != CORBA_OK) return ret;
 	}
 
@@ -1056,11 +1073,13 @@ recurse_domain(service_Whois service, int rec, obj_domain *d,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
 get_domain_by_handle(service_Whois service, const char *handle, int rec,
-		general_object *objects, int *index_free, char *errmsg)
+		general_object *objects, int *index_free, char *errmsg,
+		char* reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_DomainDetail	*c_domain; /* domain detail */
@@ -1100,7 +1119,7 @@ get_domain_by_handle(service_Whois service, const char *handle, int rec,
 		(*index_free)++;
 		CORBA_free(c_domain);
 		return recurse_domain(service, rec, &objects[*index_free - 1].obj.d,
-			objects, index_free, errmsg);
+			objects, index_free, errmsg, reg_mojeid_handle);
 
 	} else {
 
@@ -1121,6 +1140,7 @@ get_domain_by_handle(service_Whois service, const char *handle, int rec,
  * @param objects    Array of resulting objects.
  * @param index_free First free item in array of objects.
  * @param errmsg     Buffer for error message.
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 static int
@@ -1129,7 +1149,8 @@ get_domain_by_attr(service_Whois service,
 		ccReg_DomainInvKeyType attr,
 		int rec,
 		general_object *objects,
-		int *index_free, char *errmsg)
+		int *index_free, char *errmsg,
+		char* reg_mojeid_handle)
 {
 	CORBA_Environment	 ev[1];
 	ccReg_DomainDetails	*c_domains; /* domain details */
@@ -1167,7 +1188,7 @@ get_domain_by_attr(service_Whois service,
 		copy_domain(&objects[(*index_free)++], &c_domains->_buffer[i]);
 		ret = recurse_domain(service, rec,
 				&objects[*index_free - 1].obj.d,
-				objects, index_free, errmsg);
+				objects, index_free, errmsg, reg_mojeid_handle);
 		if (ret != CORBA_OK)
 			break;
 	}
@@ -1327,11 +1348,13 @@ whois_close_log_message(service_Logger service,
  * @param objects    Array of resulting objects.
  * @param timebuf    Timestamp.
  * @param errmsg
+ * @param reg_mojeid_handle    MojeID registrar handle.
  * @return           Status.
  */
 int
 whois_corba_call(service_Whois service, const whois_request *wr,
-		general_object *objects, char *timebuf, char *errmsg)
+		general_object *objects, char *timebuf, char *errmsg,
+		char* reg_mojeid_handle)
 {
 	int	rec = (wr->norecursion ? 0 : 1);
 	int	ifree = 0;  /* Index of first free item in objects array */
@@ -1345,67 +1368,66 @@ whois_corba_call(service_Whois service, const whois_request *wr,
 		case SA_REGISTRANT:
 			ret = get_domain_by_attr(service, wr->value,
 					ccReg_DIKT_REGISTRANT, rec, objects,
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 			break;
 		case SA_ADMIN_C:
 			ret = get_domain_by_attr(service, wr->value,
 					ccReg_DIKT_ADMIN, rec, objects,
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 			break;
 		case SA_TEMP_C:
 			ret = get_domain_by_attr(service, wr->value,
 					ccReg_DIKT_TEMP, rec, objects,
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 			break;
 		case SA_NSSET:
 			ret = get_domain_by_attr(service, wr->value,
 					ccReg_DIKT_NSSET, rec, objects,
-
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 			break;
 		case SA_NSERVER:
 			ret = get_nsset_by_attr(service, wr->value,
 					ccReg_NIKT_NS, rec, objects,
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 			break;
 		case SA_KEYSET:
 			ret = get_domain_by_attr(service, wr->value,
  					ccReg_DIKT_KEYSET, rec, objects,
-                                        &ifree, errmsg);
+                    &ifree, errmsg, reg_mojeid_handle);
 			break;
 		case SA_TECH_C:
 			// look for nsset by default
 			if(wr->type & T_KEYSET && !(wr->type & T_NSSET)) {
 				ret = get_keyset_by_attr(service, wr->value,
 					ccReg_KIKT_TECH, rec, objects,
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 
 			} else {
 				ret = get_nsset_by_attr(service, wr->value,
 					ccReg_NIKT_TECH, rec, objects,
-					&ifree, errmsg);
+					&ifree, errmsg, reg_mojeid_handle);
 			}
 			break;
 		default:
 			/* search by type */
 			if (wr->type & T_DOMAIN) {
 				ret = get_domain_by_handle(service, wr->value,
-						rec, objects, &ifree, errmsg);
+						rec, objects, &ifree, errmsg, reg_mojeid_handle);
 				if (ret != CORBA_OK) goto search_end;
 			}
 			if (wr->type & T_NSSET) {
 				ret = get_nsset_by_handle(service, wr->value,
-						rec, objects, &ifree, errmsg);
+						rec, objects, &ifree, errmsg, reg_mojeid_handle);
 				if (ret != CORBA_OK) goto search_end;
 			}
 			if (wr->type & T_KEYSET) {
 				ret = get_keyset_by_handle(service, wr->value,
-						rec, objects, &ifree, errmsg);
+						rec, objects, &ifree, errmsg, reg_mojeid_handle);
 				if (ret != CORBA_OK) goto search_end;
 			}
 			if (wr->type & T_CONTACT) {
 				ret = get_contact_by_handle(service, wr->value,
-						objects, &ifree, errmsg);
+						objects, &ifree, errmsg, reg_mojeid_handle);
 				if (ret != CORBA_OK) goto search_end;
 			}
 			if (wr->type & T_REGISTRAR) {
