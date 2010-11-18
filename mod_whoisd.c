@@ -542,7 +542,7 @@ static void print_contact_object(apr_bucket_brigade *bb, obj_contact *c)
             SAFE_PRINTF("changed:      %s\n", c->changed);
         } else {
             apr_brigade_printf(bb, NULL, NULL, "%s\n",
-                        "status:       Contact is used by MojeID");
+                        "status:       Contact is used by mojeID");
         }
 
 	apr_brigade_puts(bb, NULL, NULL, "\n");
