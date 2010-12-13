@@ -900,7 +900,7 @@ translate_status(service_Whois service, general_object *objects, char *errmsg)
 	int	 retr;
 	obj_domain	*d;
 	CORBA_Environment	 ev[1];
-	ccReg_ObjectStatusDescSeq	*c_stat;
+	Registry_ObjectStatusDescSeq	*c_stat;
 
 	/* retry loop */
 	for (retr = 0; retr < MAX_RETRIES; retr++) {
