@@ -241,7 +241,7 @@ get_registrar_by_handle(service_Whois service, const char *handle,
 		general_object *objects, int *index_free, char *errmsg)
 {
 	CORBA_Environment	 ev[1];
-	ccReg_AdminRegistrar	*c_registrar; /* registrar detail */
+	ccReg_Registrar	*c_registrar; /* registrar detail */
 	obj_registrar	*r;
 	int	 retr;  /* retry counter */
 	int	 line;
