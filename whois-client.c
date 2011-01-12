@@ -253,7 +253,7 @@ get_registrar_by_handle(service_Whois service, const char *handle,
 		CORBA_exception_init(ev);
 
 		/* call registrar method */
-		c_registrar = ccReg_Admin_getRegistrarByHandle(
+		c_registrar = ccReg_Whois_getRegistrarByHandle(
 				(ccReg_Admin) service, handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
