@@ -254,7 +254,7 @@ get_registrar_by_handle(service_Whois service, const char *handle,
 
 		/* call registrar method */
 		c_registrar = ccReg_Whois_getRegistrarByHandle(
-				(ccReg_Admin) service, handle, ev);
+				(ccReg_Whois) service, handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -333,7 +333,7 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		CORBA_exception_init(ev);
 
 		/* call contact method */
-		c_contact = ccReg_Whois_getContactByHandle((ccReg_Admin)service,
+		c_contact = ccReg_Whois_getContactByHandle((ccReg_Whois)service,
 				handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
