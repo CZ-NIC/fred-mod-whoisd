@@ -55,7 +55,7 @@
 	(strcmp((_ev)->_id, "IDL:omg.org/CORBA/COMM_FAILURE:1.0"))
 /** True if CORBA exception is ObjectNotFound */
 #define IS_OBJECT_NOT_FOUND(_ev)                             \
-	(!strcmp((_ev)->_id, "IDL:ccReg/Admin/ObjectNotFound:1.0"))
+	(!strcmp((_ev)->_id, "IDL:ccReg/Whois/ObjectNotFound:1.0"))
 
 /** Call strdup on string only if it is not empty, otherwise return NULL. */
 #define NULL_STRDUP(src)	((*(src) == '\0') ? NULL : strdup(src))
@@ -646,7 +646,7 @@ get_nsset_by_handle(service_Whois service, const char *handle, int rec,
 		CORBA_exception_init(ev);
 
 		/* call nsset method */
-		c_nsset = ccReg_Admin_getNSSetByHandle((ccReg_Admin) service,
+		c_nsset = ccReg_Whois_getNSSetByHandle((ccReg_Whois) service,
 				handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
@@ -708,7 +708,7 @@ get_keyset_by_handle(service_Whois service, const char *handle, int rec,
 		CORBA_exception_init(ev);
 
 		/* call keyset method */
-		c_keyset = ccReg_Admin_getKeySetByHandle((ccReg_Admin) service,
+		c_keyset = ccReg_Whois_getKeySetByHandle((ccReg_Whois) service,
 				handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
@@ -780,8 +780,8 @@ get_nsset_by_attr(service_Whois service,
 		CORBA_exception_init(ev);
 
 		/* call nsset method */
-		c_nssets = ccReg_Admin_getNSSetsByInverseKey(
-				(ccReg_Admin) service, key, attr,
+		c_nssets = ccReg_Whois_getNSSetsByInverseKey(
+				(ccReg_Whois) service, key, attr,
 				MAX_OBJECT_COUNT - *index_free, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
@@ -850,8 +850,8 @@ get_keyset_by_attr(service_Whois service,
 		CORBA_exception_init(ev);
 
 		/* call keyset method */
-		c_keysets = ccReg_Admin_getKeySetsByInverseKey(
-				(ccReg_Admin) service, key, attr,
+		c_keysets = ccReg_Whois_getKeySetsByInverseKey(
+				(ccReg_Whois) service, key, attr,
 				MAX_OBJECT_COUNT - *index_free, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
@@ -907,8 +907,8 @@ translate_status(service_Whois service, general_object *objects, char *errmsg)
 		if (retr != 0) CORBA_exception_free(ev);
 		CORBA_exception_init(ev);
 
-		c_stat = ccReg_Admin_getDomainStatusDescList(
-				(ccReg_Admin) service, "EN", ev);
+		c_stat = ccReg_Whois_getDomainStatusDescList(
+				(ccReg_Whois) service, "EN", ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
 		if (!raised_exception(ev) || IS_NOT_COMM_FAILURE_EXCEPTION(ev))
@@ -1092,7 +1092,7 @@ get_domain_by_handle(service_Whois service, const char *handle, int rec,
 		CORBA_exception_init(ev);
 
 		/* call domain method */
-		c_domain = ccReg_Admin_getDomainByFQDN((ccReg_Admin) service,
+		c_domain = ccReg_Whois_getDomainByFQDN((ccReg_Whois) service,
 				handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
@@ -1164,8 +1164,8 @@ get_domain_by_attr(service_Whois service,
 		CORBA_exception_init(ev);
 
 		/* call domain method */
-		c_domains = ccReg_Admin_getDomainsByInverseKey(
-				(ccReg_Admin) service, key, attr,
+		c_domains = ccReg_Whois_getDomainsByInverseKey(
+				(ccReg_Whois) service, key, attr,
 				MAX_OBJECT_COUNT - *index_free, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
