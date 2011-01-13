@@ -156,9 +156,9 @@ AC_ARG_WITH([nshost], [AS_HELP_STRING([--with-nshost],
 
 #whois object name
 AC_ARG_WITH([whois_objectname], [AS_HELP_STRING([--with-whois-objectname],
-            [Name of web whois object [WebWhois]])],
+            [Name of web whois object [Whois]])],
             [AC_SUBST([OBJECTNAME], [$withval])],
-            [AC_SUBST([OBJECTNAME], [WebWhois])])
+            [AC_SUBST([OBJECTNAME], [Whois])])
 
 #logger object name
 AC_ARG_WITH([logger_objectname], [AS_HELP_STRING([--with-logger-objectname],

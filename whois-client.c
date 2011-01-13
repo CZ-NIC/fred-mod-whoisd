@@ -333,7 +333,7 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		CORBA_exception_init(ev);
 
 		/* call contact method */
-		c_contact = ccReg_Admin_getContactByHandle((ccReg_Admin)service,
+		c_contact = ccReg_Whois_getContactByHandle((ccReg_Admin)service,
 				handle, ev);
 
 		/* if COMM_FAILURE is not raised then quit retry loop */
