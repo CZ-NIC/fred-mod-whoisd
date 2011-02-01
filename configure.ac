@@ -121,9 +121,9 @@ AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
 
 # check IDL file
 AC_ARG_WITH([idl], [AS_HELP_STRING([--with-idl],
-                        [location of idl file containing Whois interface [IDLDIR/Whois.idl]])],
+                        [location of idl file containing Whois interface [IDLDIR/ModWhois.idl]])],
                         [AC_SUBST([IDL], [$withval])],
-                        [AC_SUBST([IDL], [$IDLDIR/Whois.idl])])
+                        [AC_SUBST([IDL], [$IDLDIR/ModWhois.idl])])
 
 # unittests
 AC_ARG_WITH([unittests], [AS_HELP_STRING([--with-unittests], 
