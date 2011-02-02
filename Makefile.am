@@ -48,7 +48,7 @@ uninstall-local:
 mod_whoisd.la: libmodwhoisd.la
 	${APXS} -c -o $@ $< ${APACHE_CFLAGS} ${ORBIT_CFLAGS} ${AM_LDFLAGS}
 
-${IDL_C}: ${IDL} ${IDLDIR}/_Whois.idl ${IDLDIR}/_Logger.idl \
+${IDL_C}: ${IDL} ${IDLDIR}/Whois.idl ${IDLDIR}/Logger.idl \
  ${IDLDIR}/_dataTypes.idl ${IDLDIR}/_Registry.idl \
  ${IDLDIR}/Filters.idl 
 	${ORBIT_IDL} --noskels ${IDL}

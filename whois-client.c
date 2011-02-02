@@ -1257,7 +1257,7 @@ whois_log_new_message(service_Logger service,
         CORBA_free(properties);
         CORBA_free(objrefs);
 
-        // TODO handle user-define exceptions from _Logger.idl
+        // TODO handle user-define exceptions from Logger.idl
 	if (raised_exception(ev)) {
 		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
 		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
