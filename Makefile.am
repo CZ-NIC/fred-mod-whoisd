@@ -49,7 +49,7 @@ mod_whoisd.la: libmodwhoisd.la
 	${APXS} -c -o $@ $< ${APACHE_CFLAGS} ${ORBIT_CFLAGS} ${AM_LDFLAGS}
 
 ${IDL_C}: ${IDL} ${IDLDIR}/Whois.idl ${IDLDIR}/Logger.idl \
- ${IDLDIR}/_dataTypes.idl ${IDLDIR}/_Registry.idl \
+ ${IDLDIR}/_dataTypes.idl ${IDLDIR}/Registry.idl \
  ${IDLDIR}/Filters.idl 
 	${ORBIT_IDL} --noskels ${IDL}
 
