@@ -119,12 +119,6 @@ AC_ARG_WITH([idldir], [AS_HELP_STRING([--with-idldir],
                         [AC_SUBST([IDLDIR], [$withval])],
                         [AC_SUBST([IDLDIR], [$DATAROOTDIR/idl/fred/])])
 
-# check IDL file
-AC_ARG_WITH([idl], [AS_HELP_STRING([--with-idl],
-                        [location of idl file containing Whois interface [IDLDIR/ModWhois.idl]])],
-                        [AC_SUBST([IDL], [$withval])],
-                        [AC_SUBST([IDL], [$IDLDIR/ModWhois.idl])])
-
 # unittests
 AC_ARG_WITH([unittests], [AS_HELP_STRING([--with-unittests], 
 			[Whether to include unittests [default=no]])],
@@ -163,7 +157,7 @@ AC_ARG_WITH([logger_objectname], [AS_HELP_STRING([--with-logger-objectname],
             [AC_SUBST([LOGGER_OBJECTNAME], [$withval])],
             [AC_SUBST([LOGGER_OBJECTNAME], [Logger])])
 
-
+# check IDL files
 AC_CHECK_FILE(
 	[$IDLDIR/_dataTypes.idl],
 	[],
