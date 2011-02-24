@@ -1,6 +1,13 @@
+2010-11-24 Juraj Vicenik, Jan Zima (3.2.5)
+
+	* mojeid contacts display fix
+
+	* bugfixes (missing initialization, double free)
+
 2010-10-18 Juraj Vicenik (3.2.4)
-	* Implemented refactored logging interface 
-	
+
+	* Implemented refactored logging interface
+
 2010-06-21 Jiri Sadek (3.2.3)
 
 	* Project configuration changes
