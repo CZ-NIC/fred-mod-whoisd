@@ -1,3 +1,7 @@
+2011-02-24 Jan Zima (3.2.6)
+
+	* renaming due whois idl interface split (separate interface now)
+
 2010-11-24 Juraj Vicenik, Jan Zima (3.2.5)
 
 	* mojeid contacts display fix
