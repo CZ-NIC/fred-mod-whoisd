@@ -173,7 +173,7 @@ class Domain(object):
 class Nsset(object):
 	def __init__(self, str):
 		self.nsset = getval('nsset', '\S+', str)
-		# complete:	
+		# complete:
 		# self.nserver = getval('nserver', '((?:[a-zA-Z0-9]+\.?)+)\s+\(((' + IPV4_REGEX + ')|(' + IPV6_REGEX + '),?\s*)+\)', str, list=True)
 		# simple solution:
 		self.nserver = getval('nserver', '((?:[a-zA-Z0-9]+\.?)+)\s+\(.+\)?', str, list=True)
@@ -185,7 +185,7 @@ class Nsset(object):
 class Keyset(object):
 	def __init__(self, str):
 		self.keyset = getval('keyset', '\S+', str)
-		self.delsigner = getval('delsigner', '.+', str, list=True) 
+		self.delsigner = getval('delsigner', '.+', str, list=True)
 		self.tech_c = getval('tech-c', '\S+', str, list=True)
 		self.registrar = getval('registrar', '\S+', str)
 		self.created = gettimeval('created', str)
@@ -342,7 +342,7 @@ class ObjectSpecificTests(unittest.TestCase):
 		for obj in ans.objects:
 			if isinstance(obj, Nsset):
 				self.nsset = obj
-		# find keyset 
+		# find keyset
 		for obj in ans.objects:
 			if isinstance(obj, Keyset):
 				self.keyset = obj
