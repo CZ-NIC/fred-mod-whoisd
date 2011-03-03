@@ -1,8 +1,8 @@
 ACLOCAL_AMFLAGS = -I m4
 include $(top_srcdir)/am_doxygen.am
 
-testsdir=${LIBRARYDIR}/mod_whoisd/unittest
-# testsdir=${prefix}/lib/mod_whoisd/unittest
+testdatadir=${LIBRARYDIR}/mod_whoisd/unittest
+# testdatadir=${prefix}/lib/mod_whoisd/unittest
 
 CLEANFILES = .libs/libmodwhoisd *~ mod_whoisd.la \
     conf/02-fred-mod-whoisd-apache.conf \
@@ -64,7 +64,7 @@ MOSTLYCLEANFILES = ${DX_CLEANFILES}
 endif
 
 if WITH_UNITTESTS
-tests_DATA 	  = unittests/*
+dist_testdata_DATA = unittests/test_whois.py
 endif
 
 install-exec-local:
