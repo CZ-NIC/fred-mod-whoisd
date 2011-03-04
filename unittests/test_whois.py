@@ -45,7 +45,7 @@ import unittest
 
 MAX_REQLEN = 1000
 BUFFSIZE   = 64000
-TESTDOMAIN = 'domain.cz'
+TESTDOMAIN = 'fred.cz'
 WHOIS_HOST = 'localhost'
 WHOIS_PORT = 22352
 IPV4_REGEX = '(?:(?:\d+?)\.){3}\d+'
