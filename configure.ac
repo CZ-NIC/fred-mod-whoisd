@@ -127,7 +127,7 @@ AC_ARG_WITH([unittests], [AS_HELP_STRING([--with-unittests],
 				no) UNITTESTS=false;;
 				*)  AC_MSG_ERROR(bad value ${withval} for --with-unittests);;
 			esac],
-			[with_unittests=false])
+			[with_unittests=true])
 
 AC_MSG_NOTICE([ -------variable UNITTESTS value : $UNITTESTS ])
 
