@@ -232,5 +232,6 @@ AC_DEFINE_UNQUOTED([SVN_REV], [["]$SVNREV["]], [SVN revision])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
 		 fred-mod-whoisd.spec
-         conf/02-fred-mod-whoisd-apache.conf])
+         conf/02-fred-mod-whoisd-apache.conf
+         unittests/test_whois.py])
 AC_OUTPUT

@@ -47,7 +47,7 @@ MAX_REQLEN = 1000
 BUFFSIZE   = 64000
 TESTDOMAIN = 'fred.cz'
 WHOIS_HOST = 'localhost'
-WHOIS_PORT = 22352
+WHOIS_PORT = @PORT@
 IPV4_REGEX = '(?:(?:\d+?)\.){3}\d+'
 IPV6_REGEX = '\A(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\z'
 
