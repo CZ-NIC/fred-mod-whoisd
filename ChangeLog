@@ -1,3 +1,7 @@
+2011-03-11 Jan Zima (3.3.1)
+
+	* whois tests install fix
+
 2011-02-24 Jan Zima (3.3.0)
 
 	* renaming due whois idl interface split (separate interface now)
