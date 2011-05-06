@@ -662,19 +662,19 @@ static apr_status_t process_whois_query(conn_rec *c, whoisd_server_conf *sc,
 
 	service = (service_Whois*)get_corba_service(c, sc->object);
 
-        if (service == NULL) return APR_EGENERAL;
+    if (service == NULL) return APR_EGENERAL;
 
-        if (sc->logger_object == NULL || *sc->logger_object == '\0') {
-            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, "Reference to logger object not set in config");
-            log_service = NULL;
-        } else {
-            log_service = (service_Logger*) get_corba_service(c, sc->logger_object);
+    if (sc->logger_object == NULL || *sc->logger_object == '\0') {
+        ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, "Reference to logger object not set in config");
+        log_service = NULL;
+    } else {
+        log_service = (service_Logger*) get_corba_service(c, sc->logger_object);
 
-            if (log_service == NULL) {
-                ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
-                        "Cannot obtain reference to fred-logd CORBA service, requests won't be logged");
-            }
+        if (log_service == NULL) {
+            ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
+                    "Cannot obtain reference to fred-logd CORBA service, requests won't be logged");
         }
+    }
 
 	objects = (general_object *)
 		apr_palloc(c->pool, MAX_OBJECT_COUNT * (sizeof *objects));
@@ -820,6 +820,9 @@ void whois_log_status(conn_rec *c, service_Logger service,
 {
 	char errmsg[MAX_ERROR_MSG_LEN];
 	int lrc;
+
+    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
+                "Closing request with requestID: %llu", log_entry_id);
 
 	errmsg[0] = '\0';
 	lrc = whois_close_log_message(service, content, properties, log_entry_id, result_code, errmsg);
@@ -1353,6 +1356,9 @@ static int process_whois_connection(conn_rec *c)
 	}
 
 	status = log_whois_request(wr, c, inputline_copy, sc, &log_entry_id);
+
+	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
+	            "Obtained requestID: %llu", log_entry_id);
 
 	if (status != APR_SUCCESS)
 		return status;
