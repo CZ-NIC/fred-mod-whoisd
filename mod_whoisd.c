@@ -1004,8 +1004,8 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
             if (service == NULL) {
                 ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
 						"Couldn't obtain reference to logger object.");
-		*log_entry_id = 0;
-		return APR_SUCCESS;
+                    *log_entry_id = 0;
+                    return APR_SUCCESS;
             }
         }
 
@@ -1139,7 +1139,7 @@ static int process_whois_connection(conn_rec *c)
 	int	 parse_error;    /* error when parsing options */
 	whois_request	*wr;     /* whois request structure */
 	server_rec	*s = c->base_server;
-	ccReg_TID log_entry_id;
+	ccReg_TID log_entry_id = 0;
 	whoisd_server_conf *sc = (whoisd_server_conf *)
 		ap_get_module_config(s->module_config, &whoisd_module);
 

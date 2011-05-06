@@ -1239,6 +1239,7 @@ whois_log_new_message(service_Logger service,
         }
  
 
+    *log_entry_id = 0;
 	/* retry loop */
 	for (retr = 0; retr < MAX_RETRIES; retr++) {
 		if (retr != 0) CORBA_exception_free(ev); /* valid first time */
@@ -1262,6 +1263,7 @@ whois_log_new_message(service_Logger service,
 		strncpy(errmsg, ev->_id, MAX_ERROR_MSG_LEN - 1);
 		errmsg[MAX_ERROR_MSG_LEN - 1] = '\0';
 		CORBA_exception_free(ev);
+        *log_entry_id = 0;
 		return CORBA_SERVICE_FAILED;
 	}
 	CORBA_exception_free(ev);
