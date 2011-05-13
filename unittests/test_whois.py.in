@@ -185,7 +185,7 @@ class Nsset(object):
 class Keyset(object):
 	def __init__(self, str):
 		self.keyset = getval('keyset', '\S+', str)
-		self.delsigner = getval('delsigner', '.+', str, list=True)
+		self.dnskey = getval('dnskey', '.+', str, list=True)
 		self.tech_c = getval('tech-c', '\S+', str, list=True)
 		self.registrar = getval('registrar', '\S+', str)
 		self.created = gettimeval('created', str)
@@ -325,7 +325,7 @@ class NotObjectSpecificTests(unittest.TestCase):
 
 class ObjectSpecificTests(unittest.TestCase):
 	'''
-	The class gathers tests which are not object specific.
+	The class gathers tests which are object specific.
 	'''
 
 	def setUp(self):
@@ -533,8 +533,8 @@ if __name__ == '__main__':
 
 	# put together test suite
 	whois_suite = unittest.TestLoader().loadTestsFromTestCase(NotObjectSpecificTests)
-#	whois_suite2 = unittest.TestLoader().loadTestsFromTestCase(ObjectSpecificTests)
-#	whois_suite.addTest(whois_suite2)
+	whois_suite2 = unittest.TestLoader().loadTestsFromTestCase(ObjectSpecificTests)
+	whois_suite.addTest(whois_suite2)
 	#fm_suite.addTest(SearchTest())
 
 	# Run unittests
