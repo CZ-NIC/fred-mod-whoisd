@@ -1,3 +1,9 @@
+2011-05-20 Juraj Vicenik, Vit Vomacko (3.4.0)
+
+	* Logger fixing uninitialized parameters
+
+	* re-add object specific tests to testsuite
+
 2011-03-11 Jan Zima (3.3.1)
 
 	* whois tests install fix
