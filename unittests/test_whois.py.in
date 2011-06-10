@@ -157,7 +157,7 @@ def getdateval(key, input, mustbe = True):
 
 class Domain(object):
 	def __init__(self, str):
-		self.domain = getval('domain', '[a-zA-Z0-9]+\.cz', str)
+		self.domain = getval('domain', '[a-zA-Z0-9][a-zA-Z0-9\-]+\.cz', str)
 		self.registrant = getval('registrant', '\S+', str, mustbe=False)
 		self.admin_c = getval('admin-c', '\S+', str, mustbe=False, list=True)
 		self.temp_c = getval('temp-c', '\S+', str, mustbe=False, list=True)
