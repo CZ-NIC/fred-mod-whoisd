@@ -435,7 +435,13 @@ class ObjectSpecificTests(unittest.TestCase):
 
 	def test_invRegistrant(self):
 		self.s.send('-r -i registrant ' + self.domain.registrant + '\r\n')
-		rawans = self.s.recv(BUFFSIZE)
+		rawans=''
+		while 1:
+			chunk = self.s.recv(BUFFSIZE)
+			if not chunk:
+				break
+			rawans += chunk
+
 		ans = Answer(rawans)
 		found = False
 		for obj in ans.objects:
