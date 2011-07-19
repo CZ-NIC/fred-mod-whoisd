@@ -44,7 +44,7 @@ import commands, ConfigParser, sys, getopt, os, re, random, os, socket, time
 import unittest
 
 MAX_REQLEN = 1000
-BUFFSIZE   = 64000
+BUFFSIZE   = 4096
 TESTDOMAIN = 'fred.cz'
 WHOIS_HOST = 'localhost'
 WHOIS_PORT = @PORT@
@@ -56,6 +56,56 @@ def usage():
 	print
 	print 'verbose level number is handed over to unittest function as it is.'
 	print
+
+class TestSocket(socket.socket):
+    '''
+    Socket wrapper using aggregation
+    suitable for receiving large chunks of data
+    Subclassing socket.socket was rather difficult:
+    http://groups.google.com/group/comp.lang.python/browse_thread/thread/76d27388b0d286fa/c9849013e37c995b?pli=1
+
+    Typical use of the class:
+        s = TestSocket(socket.AF_INET, socket.SOCK_STREAM)
+		s.connect((WHOIS_HOST, WHOIS_PORT))
+		s.send('x' * MAX_REQLEN + '\r\n')
+		rawans = s.recv(BUFFSIZE)
+		s.close()
+
+    '''
+    def __init__(self, family, type, proto=0):
+        self.sock = socket.socket(family, type, proto)
+
+
+    def connect (self, addr):
+        self.sock.connect(addr)
+
+
+    def send (self, content):
+        self.sock.send(content)
+
+
+    def recv(self, size, flags=''):
+        '''
+        Different from originial socket.recv, size is only 
+        block size to use while reading the data from socket.
+        Complete answer is read by chunks of size 'size' until 
+        no data is available via socket.recv
+        '''
+        ret=''
+
+        while 1:
+			chunk = self.sock.recv(size)
+			if not chunk:
+				break
+            else:
+                ret += chunk
+
+        return ret
+
+
+    def close(self):
+        self.sock.close()
+
 
 class Answer(object):
 	def __init__(self, str):
@@ -224,7 +274,7 @@ class NotObjectSpecificTests(unittest.TestCase):
 		'''
 		Connect to whois server.
 		'''
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.s = TestSocket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.connect((WHOIS_HOST, WHOIS_PORT))
 
 	def tearDown(self):
@@ -332,7 +382,8 @@ class ObjectSpecificTests(unittest.TestCase):
 		'''
 		Connect to whois server.
 		'''
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s = TestSocket(socket.AF_INET, socket.SOCK_STREAM)
+		# self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.connect((WHOIS_HOST, WHOIS_PORT))
 		self.s.send(TESTDOMAIN + '\r\n')
 		rawans = self.s.recv(BUFFSIZE)
@@ -348,7 +399,7 @@ class ObjectSpecificTests(unittest.TestCase):
 				self.keyset = obj
 
 		self.s.close()
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.s = TestSocket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.connect((WHOIS_HOST, WHOIS_PORT))
 
 	def tearDown(self):
@@ -435,12 +486,8 @@ class ObjectSpecificTests(unittest.TestCase):
 
 	def test_invRegistrant(self):
 		self.s.send('-r -i registrant ' + self.domain.registrant + '\r\n')
-		rawans=''
-		while 1:
-			chunk = self.s.recv(BUFFSIZE)
-			if not chunk:
-				break
-			rawans += chunk
+
+        rawans = self.s.recv(BUFFSIZE);
 
 		ans = Answer(rawans)
 		found = False
