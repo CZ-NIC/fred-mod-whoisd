@@ -210,7 +210,6 @@ typedef struct {
  * @param timebuf     Time of response generation (buffer must be
  *                    TIME_BUFFER_LENGTH bytes long).
  * @param errmsg      Buffer for error message.
- * @param reg_mojeid_handle    MojeID registrar handle.
  * @return            Status code.
  */
 int
@@ -218,8 +217,7 @@ whois_corba_call(service_Whois service,
 		const whois_request *wr,
 		general_object *objects,
 		char *timebuf,
-		char *errmsg,
-		char *reg_mojeid_handle);
+		char *errmsg);
 
 /**
  * Release data.
