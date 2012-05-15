@@ -7,7 +7,7 @@ License:        GPL
 URL:            http://fred.nic.cz
 Source:         %{name}-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  apr-devel, httpd-devel, ORBit2-devel
+BuildRequires:  gcc, apr-devel, httpd-devel, ORBit2-devel, fred-idl
 Requires: httpd, fred-mod-corba
 
 %description
@@ -31,6 +31,26 @@ find ${RPM_BUILD_ROOT}/usr/share/doc/ | cut -c$(echo -n "${RPM_BUILD_ROOT} " | w
 
 %post
 test -f /etc/httpd/conf.d/02-fred-mod-whoisd-apache.conf || ln -s /usr/share/fred-mod-whoisd/02-fred-mod-whoisd-apache.conf /etc/httpd/conf.d/
+/usr/sbin/sestatus | grep -q "SELinux status:.*disabled" || {
+echo "
+module httpd_whois 1.0;
+
+require {
+	type httpd_t;
+	type whois_port_t;
+	class tcp_socket name_bind;
+}
+
+#============= httpd_t ==============
+allow httpd_t whois_port_t:tcp_socket name_bind;
+" > /tmp/httpd_whois.te 
+/usr/bin/checkmodule -M -m -o /tmp/httpd_whois.mod /tmp/httpd_whois.te > /dev/null 2>&1
+/usr/bin/semodule_package -o /tmp/httpd_whois.pp -m /tmp/httpd_whois.mod > /dev/null 2>&1
+/usr/sbin/semodule -i /tmp/httpd_whois.pp > /dev/null 2>&1
+rm /tmp/httpd_whois.te
+rm /tmp/httpd_whois.mod
+rm /tmp/httpd_whois.pp
+}
 
 %preun
 test ! -f /etc/httpd/conf.d/02-fred-mod-whoisd-apache.conf || rm /etc/httpd/conf.d/02-fred-mod-whoisd-apache.conf
