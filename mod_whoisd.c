@@ -1046,7 +1046,6 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 		case SA_TECH_C: c_props->_buffer[i].value = wrap_str("tech-c");
 			break;
 	}
-	c_props->_buffer[i].output = 0;
 	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
@@ -1079,13 +1078,11 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	}
 	// TODO should none be inserted as a string ?
 	c_props->_buffer[i].value = wrap_str(str);
-	c_props->_buffer[i].output = 0;
 	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
 	c_props->_buffer[i].name = wrap_str("handle");
 	c_props->_buffer[i].value = wrap_str(wr->value);
-	c_props->_buffer[i].output = 0;
 	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
@@ -1095,7 +1092,6 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	} else {
 		c_props->_buffer[i].value= wrap_str("yes");
 	}
-	c_props->_buffer[i].output = 0;
 	c_props->_buffer[i].child  = CORBA_FALSE;
 	i++;
 
