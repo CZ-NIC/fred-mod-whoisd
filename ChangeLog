@@ -1,3 +1,9 @@
+2012-06-15 Jaromir Talir (3.4.1)
+
+	* fixing unit tests
+
+	* fixing some build process and dependencies
+
 2011-05-20 Juraj Vicenik, Vit Vomacko (3.4.0)
 
 	* Logger fixing uninitialized parameters
