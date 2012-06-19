@@ -353,77 +353,79 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		return ret;
 	}
 	CORBA_exception_free(ev);
-        if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free)) {
 
-                int i = 0;
+	if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free))
+	{
+		int i = 0;
 
-                objects[*index_free].type = T_CONTACT;
+		objects[*index_free].type = T_CONTACT;
 		c = &objects[*index_free].obj.c;
 		c->contact = NULL_STRDUP(c_contact->handle);
+		c->disclose = 0;
 
-                c->disclose = 0;
+		/* disclose all data for mojeid contacts which are not linked with
+		 * other objects */
+		for (i = 0; i < c_contact->statusList._length; i++)
+		{
+			if ((c_contact->statusList._buffer[i] == ID_STATUS_OBJ_LINKED)
+					|| (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_MOJEIDCONTACT))
+			{
+				c->disclose = 1;
+				break;
+			}
+		}
 
-                // don't show data for contacts which are mojeidContact and
-                // at the same time 
-                for (i=0;i<c_contact->statusList._length;i++) {
-                    if ((c_contact->statusList._buffer[i] == ID_STATUS_OBJ_LINKED)
-                            || (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_MOJEIDCONTACT)){
-                        c->disclose = 1;
-                        break;
-                    }
-                }
-
-
-                
-                if(c->disclose != 0) {
-                    /* copy contact data according to disclose flags */
-                    if (c_contact->discloseOrganization)
-                            c->org = NULL_STRDUP(c_contact->organization);
-                    else
-                            c->org = NULL;
-                    if (c_contact->discloseName)
-                            c->name = NULL_STRDUP(c_contact->name);
-                    else
-                            c->name = NULL;
-                    if (c_contact->discloseTelephone)
-                            c->phone = NULL_STRDUP(c_contact->telephone);
-                    else
-                            c->phone = NULL;
-                    if (c_contact->discloseFax)
-                            c->fax_no = NULL_STRDUP(c_contact->fax);
-                    else
-                            c->fax_no = NULL;
-                    if (c_contact->discloseEmail)
-                            c->e_mail = NULL_STRDUP(c_contact->email);
-                    else
-                            c->e_mail = NULL;
-                    c->registrar = NULL_STRDUP(c_contact->registrarHandle);
-                    c->created = NULL_STRDUP(c_contact->createDate);
-                    c->changed = NULL_STRDUP(c_contact->updateDate);
-                    /* address is more complicated, it is composed from more items */
-                    c->address = (char **) malloc(8 * sizeof (char *));
-                    line = 0;
-                    if (c_contact->discloseAddress) {
-            /** Copy contact information from CORBA structure to the data type for whois response
-            */
-            #define COPY_ADDRESS_LINE(str) \
-                    do{ if (*(str) != '\0') c->address[line++] = strdup(str); }while(0)
-                            COPY_ADDRESS_LINE(c_contact->street1);
-                            COPY_ADDRESS_LINE(c_contact->street2);
-                            COPY_ADDRESS_LINE(c_contact->street3);
-                            COPY_ADDRESS_LINE(c_contact->city);
-                            COPY_ADDRESS_LINE(c_contact->postalcode);
-                            COPY_ADDRESS_LINE(c_contact->province);
-                            COPY_ADDRESS_LINE(c_contact->country);
-            #undef COPY_ADDRESS_LINE
-                    }
-                    c->address[line] = NULL;
-
-
-                } else {
-                    // don't disclose the contact data
-                    c->disclose = 0;
-                }
+		if(c->disclose != 0) {
+			/* copy contact data according to disclose flags */
+			if (c_contact->discloseOrganization)
+				c->org = NULL_STRDUP(c_contact->organization);
+			else
+				c->org = NULL;
+			if (c_contact->discloseName)
+				c->name = NULL_STRDUP(c_contact->name);
+			else
+				c->name = NULL;
+			if (c_contact->discloseTelephone)
+				c->phone = NULL_STRDUP(c_contact->telephone);
+			else
+				c->phone = NULL;
+			if (c_contact->discloseFax)
+				c->fax_no = NULL_STRDUP(c_contact->fax);
+			else
+				c->fax_no = NULL;
+			if (c_contact->discloseEmail)
+				c->e_mail = NULL_STRDUP(c_contact->email);
+			else
+				c->e_mail = NULL;
+			c->registrar = NULL_STRDUP(c_contact->registrarHandle);
+			c->created = NULL_STRDUP(c_contact->createDate);
+			c->changed = NULL_STRDUP(c_contact->updateDate);
+			/* address is more complicated, it is composed from more items */
+			c->address = (char **) malloc(8 * sizeof (char *));
+			line = 0;
+			if (c_contact->discloseAddress)
+			{
+				/*
+				 * Copy contact information from CORBA structure to the data type for whois response
+				 */
+				#define COPY_ADDRESS_LINE(str) \
+						do{ if (*(str) != '\0') c->address[line++] = strdup(str); }while(0)
+				COPY_ADDRESS_LINE(c_contact->street1);
+				COPY_ADDRESS_LINE(c_contact->street2);
+				COPY_ADDRESS_LINE(c_contact->street3);
+				COPY_ADDRESS_LINE(c_contact->city);
+				COPY_ADDRESS_LINE(c_contact->postalcode);
+				COPY_ADDRESS_LINE(c_contact->province);
+				COPY_ADDRESS_LINE(c_contact->country);
+				#undef COPY_ADDRESS_LINE
+			}
+			c->address[line] = NULL;
+		}
+		else
+		{
+			/* don't disclose the contact data */
+			c->disclose = 0;
+		}
 
 		(*index_free)++;
 	}
@@ -1507,19 +1509,19 @@ whois_release_data(general_object *objects)
 			case T_CONTACT:
 				c = &objects[i].obj.c;
 				free(c->contact);
-                                if(c->disclose == 1) {
-                                    free(c->org);
-                                    free(c->name);
-                                    for (j = 0; c->address[j] != NULL; j++)
-                                            free(c->address[j]);
-                                    free(c->address);
-                                    free(c->phone);
-                                    free(c->fax_no);
-                                    free(c->e_mail);
-                                    free(c->registrar);
-                                    free(c->created);
-                                    free(c->changed);
-                                }
+				if(c->disclose == 1) {
+					free(c->org);
+					free(c->name);
+					for (j = 0; c->address[j] != NULL; j++)
+						free(c->address[j]);
+					free(c->address);
+					free(c->phone);
+					free(c->fax_no);
+					free(c->e_mail);
+					free(c->registrar);
+					free(c->created);
+					free(c->changed);
+				}
 				break;
 			case T_REGISTRAR:
 				r = &objects[i].obj.r;
