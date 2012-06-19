@@ -361,21 +361,25 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		objects[*index_free].type = T_CONTACT;
 		c = &objects[*index_free].obj.c;
 		c->contact = NULL_STRDUP(c_contact->handle);
-		c->disclose = 0;
+		c->disclose = 1;
 
 		/* disclose all data for mojeid contacts which are not linked with
 		 * other objects */
 		for (i = 0; i < c_contact->statusList._length; i++)
 		{
-			if ((c_contact->statusList._buffer[i] == ID_STATUS_OBJ_LINKED)
-					|| (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_MOJEIDCONTACT))
+			if (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_LINKED)
 			{
 				c->disclose = 1;
 				break;
 			}
+            else if (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_MOJEIDCONTACT)
+            {
+                c->disclose = 0;
+            }
 		}
 
-		if(c->disclose != 0) {
+		if(c->disclose == 1)
+        {
 			/* copy contact data according to disclose flags */
 			if (c_contact->discloseOrganization)
 				c->org = NULL_STRDUP(c_contact->organization);
@@ -420,11 +424,6 @@ get_contact_by_handle(service_Whois service, const char *handle,
 				#undef COPY_ADDRESS_LINE
 			}
 			c->address[line] = NULL;
-		}
-		else
-		{
-			/* don't disclose the contact data */
-			c->disclose = 0;
 		}
 
 		(*index_free)++;
