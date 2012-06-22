@@ -48,3 +48,4 @@ fred-mod-whoisd.spec
 libtool
 stamp-h1
 test_whois.py
+ar-lib
