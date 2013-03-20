@@ -58,6 +58,17 @@
 #include "scoreboard.h"
 #include "util_filter.h"
 
+/*
+ * apache 2.2 -> 2.4 changes
+ */
+#if MODULE_MAGIC_NUMBER_MAJOR >= 20100606
+/* 2.4.x or later */
+#define client_ip(r) ((r)->client_ip)
+#else
+#define client_ip(r) ((r)->remote_ip)
+#define ap_unixd_set_global_mutex_perms unixd_set_global_mutex_perms
+#endif
+
 /* CORBA backend */
 #include "whois-client.h"
 
@@ -1093,7 +1104,7 @@ static apr_status_t log_whois_request(whois_request *wr, conn_rec *c, char *cont
 	i++;
 
 	errmsg[0] = '\0';
-	rc = whois_log_new_message(service, c->remote_ip, content, c_props, log_entry_id, errmsg);
+	rc = whois_log_new_message(service, client_ip(c), content, c_props, log_entry_id, errmsg);
 
 	if (rc != CORBA_OK && rc != CORBA_OK_LIMIT) {
 		ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c,
