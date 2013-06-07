@@ -1,3 +1,7 @@
+2013-06-07 Jaromir Talir (3.7.0)
+
+	* allow compilation with both apache 2.2 and 2.4
+
 2012-09-06 Jiri Sadek, Juraj Vicenik, Jan Zima (3.6.0)
 
 	* logger - removed output flag from properties interface
