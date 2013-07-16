@@ -1,3 +1,7 @@
+2013-07-16 Jaromir Talir (3.7.1)
+
+	* fix in Fedora 19 dependancies 
+
 2013-06-07 Jaromir Talir (3.7.0)
 
 	* allow compilation with both apache 2.2 and 2.4
