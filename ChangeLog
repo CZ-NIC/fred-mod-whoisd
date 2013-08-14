@@ -1,3 +1,7 @@
+2013-08-14 Zdeněk Böhm (3.8.0)
+
+	* Removed artificial status 'paid and in zone' from domain info output
+
 2013-07-16 Jaromir Talir (3.7.1)
 
 	* fix in Fedora 19 dependancies 
