@@ -361,10 +361,10 @@ get_contact_by_handle(service_Whois service, const char *handle,
 		objects[*index_free].type = T_CONTACT;
 		c = &objects[*index_free].obj.c;
 		c->contact = NULL_STRDUP(c_contact->handle);
-		c->disclose = 1;
+		c->registrar = NULL_STRDUP(c_contact->registrarHandle);
+		c->disclose = 0;
 
-		/* disclose all data for mojeid contacts which are not linked with
-		 * other objects */
+		/* disclose all data for contacts which are linked with other objects */
 		for (i = 0; i < c_contact->statusList._length; i++)
 		{
 			if (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_LINKED)
@@ -372,10 +372,6 @@ get_contact_by_handle(service_Whois service, const char *handle,
 				c->disclose = 1;
 				break;
 			}
-            else if (c_contact->statusList._buffer[i] == ID_STATUS_OBJ_MOJEIDCONTACT)
-            {
-                c->disclose = 0;
-            }
 		}
 
 		if(c->disclose == 1)
@@ -401,7 +397,6 @@ get_contact_by_handle(service_Whois service, const char *handle,
 				c->e_mail = NULL_STRDUP(c_contact->email);
 			else
 				c->e_mail = NULL;
-			c->registrar = NULL_STRDUP(c_contact->registrarHandle);
 			c->created = NULL_STRDUP(c_contact->createDate);
 			c->changed = NULL_STRDUP(c_contact->updateDate);
 			/* address is more complicated, it is composed from more items */
