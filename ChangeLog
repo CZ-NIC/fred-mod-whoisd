@@ -1,3 +1,8 @@
+2013-10-09 Jiri Sadek (3.9.0)
+
+	* Hide data of contact not linked to other object (also used for
+	  not linked mojeid contacts), message changed
+
 2013-08-14 Zdeněk Böhm (3.8.0)
 
 	* Removed artificial status 'paid and in zone' from domain info output

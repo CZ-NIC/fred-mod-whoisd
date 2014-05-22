@@ -548,8 +548,10 @@ static void print_contact_object(apr_bucket_brigade *bb, obj_contact *c)
             SAFE_PRINTF("created:      %s\n", c->created);
             SAFE_PRINTF("changed:      %s\n", c->changed);
         } else {
+            SAFE_PRINTF("registrar:    %s\n", c->registrar);
             apr_brigade_printf(bb, NULL, NULL, "%s\n",
-                        "status:       Contact is used by mojeID");
+                        "status:       Contact is registered but not linked "
+                        "to other registry object");
         }
 
 	apr_brigade_puts(bb, NULL, NULL, "\n");
