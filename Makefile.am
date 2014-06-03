@@ -10,6 +10,7 @@ CLEANFILES = .libs/libmodwhoisd *~ mod_whoisd.la \
     Filters.h Filters-common.c Filters-stubs.c \
     Whois.h Whois-common.c Whois-stubs.c \
     Logger.h Logger-common.c Logger-stubs.c \
+    DateTime.h DateTime-common.c DateTime-stubs.c \
     _dataTypes.h _dataTypes-common.c _dataTypes-stubs.c \
     Registry.h Registry-common.c Registry-stubs.c
 
@@ -20,13 +21,13 @@ noinst_LTLIBRARIES = libcorbadatatypes.la libcorbaregistry.la \
 noinst_DATA        = mod_whoisd.la
 dist_pkgdata_DATA = conf/02-fred-mod-whoisd-apache.conf
 EXTRA_DIST = unconfig.h fred-mod-whoisd.spec doxy.conf
-BUILT_SOURCES = _dataTypes-common.c Registry-common.c \
+BUILT_SOURCES = DateTime-common.c _dataTypes-common.c Registry-common.c \
     Whois-common.c Logger-common.c Filters-common.c Admin-common.c
 
 INCL = ${APACHE_CFLAGS} ${APACHE_CPPFLAGS} ${ORBIT_CFLAGS} ${CPPFLAGS} 
 AM_LDFLAGS = ${ORBIT_LIBS} ${LIBS} ${LDFLAGS}
 
-nodist_libcorbadatatypes_la_SOURCES = _dataTypes.h _dataTypes-common.c _dataTypes-stubs.c 
+nodist_libcorbadatatypes_la_SOURCES = DateTime.h DateTime-common.c DateTime-stubs.c _dataTypes.h _dataTypes-common.c _dataTypes-stubs.c 
 libcorbadatatypes_la_CFLAGS  = ${ORBIT_CFLAGS} 
 libcorbadatatypes_la_LDFLAGS = ${ORBIT_LIBS}
 
@@ -52,7 +53,7 @@ libcorbalogger_la_LDFLAGS = ${ORBIT_LIBS}
 
 libmodwhoisd_la_SOURCES = whois-client.c whois-client.h mod_whoisd.c
 libmodwhoisd_la_CFLAGS = ${INCL} -include Whois.h -include Logger.h \
-    -include _dataTypes.h -include Registry.h -include Admin.h \
+    -include DateTime.h -include _dataTypes.h -include Registry.h -include Admin.h \
     -include Filters.h
 libmodwhoisd_la_LIBADD = libcorbadatatypes.la libcorbaregistry.la \
     libcorbalogger.la libcorbawhois.la libcorbaadmin.la libcorbafilters.la
@@ -77,6 +78,9 @@ uninstall-local:
 mod_whoisd.la: libmodwhoisd.la
 	${APXS} -c -o $@ $< ${APACHE_CFLAGS} ${ORBIT_CFLAGS} ${AM_LDFLAGS}
 
+DateTime-common.c : $(IDLDIR)/DateTime.idl
+	$(ORBIT_IDL) --onlytop --noskels $(IDLDIR)/DateTime.idl
+	
 _dataTypes-common.c : $(IDLDIR)/_dataTypes.idl
 	$(ORBIT_IDL) --onlytop --noskels $(IDLDIR)/_dataTypes.idl
 
