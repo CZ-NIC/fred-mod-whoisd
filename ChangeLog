@@ -1,3 +1,7 @@
+2014-06-12 Jan Korous (3.10.0)
+
+	* build adapted to idl changes (separation of common types)
+
 2013-10-09 Jiri Sadek (3.9.0)
 
 	* Hide data of contact not linked to other object (also used for
