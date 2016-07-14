@@ -1,13 +1,16 @@
-#
+###############################################################################
+#               FRED WhoIs Apache Module Configuration File                   #
+###############################################################################
 # This is the default configuration file for mod_whoisd Apache module.
 # See mod_whoisd's documentation for description of configuration directives.
+#
 # Include this file in the main httpd.conf configuration file or
 # copy the contents of this file to httpd.conf.
 #
-# The preferred method is to put whois in a virtual host.
-# Thus, you can continue to run http as usual and additionally, if
-# somebody connects to the port @PORT@ on @NSHOST@, whoisd protocol is activated
-# for that connection.
+# The preferred method of configuration is to put whois in a virtual host.
+# Thus, you can continue to run HTTP as usual and additionally, if
+# somebody connects to the port @PORT@ on @NSHOST@, the WhoIs protocol
+# is activated for that connection.
 #
 
 # Whois port, assigned by IANA
@@ -17,7 +20,8 @@ Listen @PORT@
 LoadModule whoisd_module @MODULE_INSTALLDIR@/mod_whoisd.so
 
 <VirtualHost *:@PORT@>
-   # mod_corba configuration, mod_corba module must be already installed
+   ### CORBA Configuration
+   # Note: The mod_corba module must be already installed!
    # Activate CORBA module
    CorbaEnable       On
    # Locate CORBA name server (host[:port])
@@ -29,13 +33,13 @@ LoadModule whoisd_module @MODULE_INSTALLDIR@/mod_whoisd.so
    # Export the Logger object
    CorbaObject       @LOGGER_OBJECTNAME@ Logger_alias
 
-   # mod_whoisd configuration
+   ### WhoIs Configuration
    # Activate WhoIs module
    WhoisProtocol     On
-   # Whois object reference (use the alias exported in mod_corba configuration)
+   # Whois object reference (use the alias exported in the CORBA configuration)
    WhoisObject       Whois_alias
-   # Logger object reference (use the alias exported in mod_corba configuration)
+   # Logger object reference (use the alias exported in the CORBA configuration)
    WhoisLogdObject   Logger_alias
    # Path to the file with the comment that is prepended to each response
-#   WhoisDisclaimer   "/etc/apache2/disclaimer.txt"
+   #WhoisDisclaimer   "/etc/apache2/disclaimer.txt"
 </VirtualHost>
