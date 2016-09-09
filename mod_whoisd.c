@@ -829,7 +829,7 @@ void whois_log_status(conn_rec *c, service_Logger service,
 	int lrc;
 
     ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
-                "Closing request with requestID: %llu", log_entry_id);
+                "Closing request with requestID: %lu", log_entry_id);
 
 	errmsg[0] = '\0';
 	lrc = whois_close_log_message(service, content, properties, log_entry_id, result_code, errmsg);
@@ -1361,7 +1361,7 @@ static int process_whois_connection(conn_rec *c)
 	status = log_whois_request(wr, c, inputline_copy, sc, &log_entry_id);
 
 	ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c,
-	            "Obtained requestID: %llu", log_entry_id);
+	            "Obtained requestID: %lu", log_entry_id);
 
 	if (status != APR_SUCCESS)
 		return status;

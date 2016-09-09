@@ -251,5 +251,22 @@ whois_log_new_message(service_Logger service,
 		ccReg_TID *log_entry_id,
 		char *errmsg);
 
+/**
+ * Update and close existing event using logging daemon
+ *
+ * @param service    Whois CORBA object reference.
+ * @param content    Raw content of the message.
+ * @param properties Custom properties parsed from the content
+ * @param log_entry_id ID of the log entry to be close
+ * @param errmsg     Buffer for error message.
+ * @return           Status.
+ */
+int
+whois_close_log_message(service_Logger service,
+        const char *content,
+        ccReg_RequestProperties *properties,
+        ccReg_TID log_entry_id,
+        CORBA_long result_code,
+        char *errmsg);
 
 #endif /* WHOIS_CLIENT_H */
