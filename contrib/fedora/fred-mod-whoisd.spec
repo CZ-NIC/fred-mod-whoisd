@@ -7,7 +7,7 @@ License:        GPL
 URL:            http://fred.nic.cz
 Source:         %{name}-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires:  gcc, apr-devel, httpd-devel, ORBit2-devel, fred-idl, doxygen
+BuildRequires:  git, gcc, apr-devel, httpd-devel, ORBit2-devel, fred-idl, doxygen
 %if 0%{?centos}
 BuildRequires: centos-release-scl, llvm-toolset-7-cmake, llvm-toolset-7-build
 %else
@@ -29,7 +29,7 @@ CORBA technology as provided by mod_corba apache module.
 
 %build
 %if 0%{?centos}
-%{?scl:scl enable devtoolset-7 llvm-toolset-7 - << \EOF}
+%{?scl:scl enable llvm-toolset-7 - << \EOF}
 %global __cmake /opt/rh/llvm-toolset-7/root/usr/bin/cmake
 %endif
 %cmake -DVERSION=%{version} -DIDL_DIR=%{path_to_idl} .
