@@ -26,6 +26,8 @@
 #ifndef WHOIS_CLIENT_H
 #define WHOIS_CLIENT_H
 
+#include "Logger.h"
+
 /**
  * @defgroup corbastatgroup Definition of corba status codes.
  *

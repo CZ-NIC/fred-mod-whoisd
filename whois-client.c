@@ -33,6 +33,7 @@
 
 /* This header file was generated from the idl  */
 #include "whois-client.h"
+#include "Whois.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
