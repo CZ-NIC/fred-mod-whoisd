@@ -11,13 +11,14 @@ assert_binary_in_path(IDL_PROGRAM orbit-idl-2)
 find_program(GIT_PROGRAM git)
 assert_binary_in_path(APXS_PROGRAM apxs)
 assert_binary_in_path(APR_PROGRAM apr-1-config)
+assert_binary_in_path(DOXY_PROGRAM doxygen)
 
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
 endif()
 
-set(module_name modwhoisd)
+set(module_name fred-mod-whoisd)
 project(${module_name} C)
 
 macro(set_default variable_name variable_value)
@@ -58,6 +59,24 @@ set_default(CONFIG_FILE_NAME 02-fred-mod-whoisd-apache.conf)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_BINARY_DIR}/config.h)
 
+set_default(SRCDIR ${CMAKE_CURRENT_SOURCE_DIR})
+set_default(PROJECT ${module_name})
+set_default(DOCDIR doxygen)
+set_default(PERL_PATH "/usr/bin/perl")
+set_default(HAVE_DOT "YES")
+set_default(DOT_PATH "/usr/bin/dot")
+set_default(GENERATE_MAN "NO")
+set_default(GENERATE_RTF "NO")
+set_default(GENERATE_XML "NO")
+set_default(GENERATE_HTMLHELP "NO")
+set_default(GENERATE_CHI "NO")
+set_default(GENERATE_HTML "YES")
+set_default(GENERATE_LATEX "NO")
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/doxy.conf.cmake ${CMAKE_BINARY_DIR}/doxy.conf)
+
+execute_process(COMMAND ${DOXY_PROGRAM} doxy.conf
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 function(compile_idl_files)
     message(STATUS "Compiling idl...")
@@ -283,11 +302,13 @@ set_common_properties_on_targets(
     corbaadmin)
 
 install(TARGETS ${module_name} LIBRARY DESTINATION ${APXS_MODULES})
-install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DATAROOTDIR}/conf FILES_MATCHING PATTERN "*.conf")
+install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DISTRO_PREFIX}share/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
+install(DIRECTORY ${CMAKE_BINARY_DIR}/${DOCDIR}/html/ DESTINATION ${DISTRO_PREFIX}share/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
 
 add_custom_target(uninstall_module COMMAND rm ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES}/lib${module_name}.so)
-add_custom_target(uninstall_configuration COMMAND rm ${DATAROOTDIR}/conf/${CONFIG_FILE_NAME})
-add_custom_target(uninstall DEPENDS uninstall_module uninstall_configuration)
+add_custom_target(uninstall_configuration COMMAND rm ${CMAKE_INSTALL_PREFIX}/${DISTRO_PREFIX}share/fred-mod-whoisd/${CONFIG_FILE_NAME})
+add_custom_target(uninstall_others COMMAND rm -rf ${CMAKE_INSTALL_PREFIX}/${DISTRO_PREFIX}share/doc/fred-mod-whoisd)
+add_custom_target(uninstall DEPENDS uninstall_module uninstall_configuration uninstall_others)
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/.git AND GIT_PROGRAM)
     if(NOT TARGET dist)
