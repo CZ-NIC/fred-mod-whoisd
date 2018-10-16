@@ -14,7 +14,7 @@ BuildRequires: centos-release-scl, llvm-toolset-7-cmake, llvm-toolset-7-build
 %else
 BuildRequires: cmake
 %endif
-Requires: httpd, fred-mod-corba, checkpolicy, policycoreutils-python
+Requires: httpd, fred-mod-corba, checkpolicy, /usr/sbin/semanage
 # Requires checkpolicy in Fedora 19 because of postinstall script that 
 # compile  selinux policy
 
