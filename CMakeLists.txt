@@ -273,27 +273,28 @@ target_include_external_libraries(corbalogger
 target_add_flags_for_external_libraries(corbalogger
     orbit2)
 
-add_library(${module_name} SHARED
+add_library(whoisd SHARED
     whois-client.c
     mod_whoisd.c)
-target_link_libraries(${module_name}
+set_target_properties(whoisd PROPERTIES PREFIX "mod_")
+target_link_libraries(whoisd
     corbadatatypes
     corbaregistry
     corbaadmin
     corbafilters
     corbawhois
     corbalogger)
-target_include_external_libraries(${module_name}
+target_include_external_libraries(whoisd
     orbit2
     apxs
     apr)
-target_add_flags_for_external_libraries(${module_name}
+target_add_flags_for_external_libraries(whoisd
     orbit2
     apxs
     apr)
 
 set_common_properties_on_targets(
-    ${module_name}
+    whoisd
     corbadatatypes
     corbaregistry
     corbalogger
@@ -301,11 +302,11 @@ set_common_properties_on_targets(
     corbafilters
     corbaadmin)
 
-install(TARGETS ${module_name} LIBRARY DESTINATION ${APXS_MODULES})
+install(TARGETS whoisd LIBRARY DESTINATION ${APXS_MODULES})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DISTRO_PREFIX}share/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
 install(DIRECTORY ${CMAKE_BINARY_DIR}/${DOCDIR}/html/ DESTINATION ${DISTRO_PREFIX}share/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
 
-add_custom_target(uninstall_module COMMAND rm ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES}/lib${module_name}.so)
+add_custom_target(uninstall_module COMMAND rm ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES}/mod_whoisd.so)
 add_custom_target(uninstall_configuration COMMAND rm ${CMAKE_INSTALL_PREFIX}/${DISTRO_PREFIX}share/fred-mod-whoisd/${CONFIG_FILE_NAME})
 add_custom_target(uninstall_others COMMAND rm -rf ${CMAKE_INSTALL_PREFIX}/${DISTRO_PREFIX}share/doc/fred-mod-whoisd)
 add_custom_target(uninstall DEPENDS uninstall_module uninstall_configuration uninstall_others)
