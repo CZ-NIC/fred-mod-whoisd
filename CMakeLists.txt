@@ -279,11 +279,11 @@ add_library(whoisd SHARED
 set_target_properties(whoisd PROPERTIES PREFIX "mod_")
 target_link_libraries(whoisd
     corbadatatypes
-    corbaregistry
+    corbalogger
+    corbawhois
     corbaadmin
     corbafilters
-    corbawhois
-    corbalogger)
+    corbaregistry)
 target_link_external_libraries(whoisd
     orbit2
     apxs
