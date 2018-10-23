@@ -284,6 +284,10 @@ target_link_libraries(whoisd
     corbafilters
     corbawhois
     corbalogger)
+target_link_external_libraries(whoisd
+    orbit2
+    apxs
+    apr)
 target_include_external_libraries(whoisd
     orbit2
     apxs
