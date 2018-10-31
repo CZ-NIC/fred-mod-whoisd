@@ -75,7 +75,7 @@ rm -rf ${RPM_BUILD_ROOT}
 
 %files -f INSTALLED_FILES
 %defattr(-,root,root,-)
-%{_libdir}/httpd/modules/libfred-mod-whoisd.so
+%{_libdir}/httpd/modules/mod_whoisd.so
 /usr/share/fred-mod-whoisd/02-fred-mod-whoisd-apache.conf
 
 %changelog
