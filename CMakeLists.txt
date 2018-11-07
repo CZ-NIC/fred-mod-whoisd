@@ -27,9 +27,14 @@ macro(set_default variable_name variable_value)
     endif()
 endmacro()
 
+macro(normalize_path variable_name variable_value)
+    string(REGEX REPLACE "//*" "/" "${variable_name}" "${variable_value}")
+    string(REGEX REPLACE "/$" "" "${variable_name}" "${${variable_name}}")
+endmacro()
+
 macro(set_default_path variable_name variable_value)
     if(NOT ${variable_name})
-        string(REGEX REPLACE "//*" "/" "${variable_name}" "${variable_value}")
+        normalize_path(${variable_name} ${variable_value})
     endif()
 endmacro()
 
@@ -49,8 +54,21 @@ if(NOT VERSION)
 endif()
 set(TARBALL_FILE_NAME "fred-mod-whoisd-${VERSION}")
 
+normalize_path(NORMALIZED_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+if(${NORMALIZED_INSTALL_PREFIX} STREQUAL "/usr/local")
+    set(USR_PREFIX "")
+    set(USR_SHARE_PREFIX "")
+else()
+    set(USR_SHARE_PREFIX "/usr")
+    if(USE_USR_PREFIX)
+        set(USR_PREFIX "/usr")
+    else()
+        set(USR_PREFIX "")
+    endif()
+endif()
+
 set_default_path(IDL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../idl/idl)
-set_default_path(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/usr/share/)
+set_default_path(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/${USR_SHARE_PREFIX}/share/)
 
 set_default(WITH_UNITTESTS 1)
 
