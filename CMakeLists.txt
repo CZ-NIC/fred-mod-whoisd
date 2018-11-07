@@ -27,6 +27,12 @@ macro(set_default variable_name variable_value)
     endif()
 endmacro()
 
+macro(set_default_path variable_name variable_value)
+    if(NOT ${variable_name})
+        string(REGEX REPLACE "//*" "/" "${variable_name}" "${variable_value}")
+    endif()
+endmacro()
+
 set_default(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_C_FLAGS_RELEASE "-O2")
 
@@ -43,8 +49,8 @@ if(NOT VERSION)
 endif()
 set(TARBALL_FILE_NAME "fred-mod-whoisd-${VERSION}")
 
-set_default(IDL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../idl/idl)
-set_default(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/usr/share/)
+set_default_path(IDL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../idl/idl)
+set_default_path(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/usr/share/)
 
 set_default(WITH_UNITTESTS 1)
 
@@ -62,9 +68,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_BINARY_DIR}/co
 set_default(SRCDIR ${CMAKE_CURRENT_SOURCE_DIR})
 set_default(PROJECT ${module_name})
 set_default(DOCDIR doxygen)
-set_default(PERL_PATH "/usr/bin/perl")
+set_default_path(PERL_PATH "/usr/bin/perl")
 set_default(HAVE_DOT "YES")
-set_default(DOT_PATH "/usr/bin/dot")
+set_default_path(DOT_PATH "/usr/bin/dot")
 set_default(GENERATE_MAN "NO")
 set_default(GENERATE_RTF "NO")
 set_default(GENERATE_XML "NO")
