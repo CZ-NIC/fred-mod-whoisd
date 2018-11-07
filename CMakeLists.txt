@@ -307,12 +307,12 @@ set_common_properties_on_targets(
     corbaadmin)
 
 install(TARGETS whoisd LIBRARY DESTINATION ${APXS_MODULES})
-install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DISTRO_PREFIX}share/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
-install(DIRECTORY ${CMAKE_BINARY_DIR}/${DOCDIR}/html/ DESTINATION ${DISTRO_PREFIX}share/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
+install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DATAROOTDIR}/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
+install(DIRECTORY ${CMAKE_BINARY_DIR}/${DOCDIR}/html/ DESTINATION ${DATAROOTDIR}/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
 
 add_custom_target(uninstall_module COMMAND rm ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES}/mod_whoisd.so)
-add_custom_target(uninstall_configuration COMMAND rm ${CMAKE_INSTALL_PREFIX}/${DISTRO_PREFIX}share/fred-mod-whoisd/${CONFIG_FILE_NAME})
-add_custom_target(uninstall_others COMMAND rm -rf ${CMAKE_INSTALL_PREFIX}/${DISTRO_PREFIX}share/doc/fred-mod-whoisd)
+add_custom_target(uninstall_configuration COMMAND rm ${DATAROOTDIR}/fred-mod-whoisd/${CONFIG_FILE_NAME})
+add_custom_target(uninstall_others COMMAND rm -rf ${DATAROOTDIR}/doc/fred-mod-whoisd)
 add_custom_target(uninstall DEPENDS uninstall_module uninstall_configuration uninstall_others)
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/.git AND GIT_PROGRAM)
