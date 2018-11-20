@@ -1,3 +1,11 @@
+2018-11-20 (3.11.0)
+
+    * CMake build
+
+    * COPR build
+
+    * AUTHORS file update
+
 2016-09-12 Jan Zima, Zuzana Ansorgova (3.10.2)
 
     * Build fix (gcc 6.1.1)
