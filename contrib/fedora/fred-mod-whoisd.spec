@@ -3,7 +3,7 @@ Version:        %{our_version}
 Release:        %{?our_release}%{!?our_release:1}%{?dist}
 Summary:        FRED - unix whois server as apache module
 Group:          Applications/Utils
-License:        GPL
+License:        GPLv3+
 URL:            http://fred.nic.cz
 Source0:        %{name}-%{version}.tar.gz
 Source1:        idl-%{idl_branch}.tar.gz
