@@ -247,7 +247,7 @@ static void print_intro(apr_bucket_brigade *bb, conn_rec *c,
 	 */
 	apr_brigade_puts(bb, NULL, NULL, disclaimer);
 	apr_brigade_printf(bb, NULL, NULL, "\nWhoisd Server Version: %s\n",
-			PACKAGE_VERSION);
+			MOD_VERSION);
 	if (timestamp != NULL)
 		apr_brigade_printf(bb, NULL, NULL,"Timestamp: %s\n", timestamp);
 
@@ -1473,8 +1473,8 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
 		s = s->next;
 	}
     ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, s, "mod_whoisd started (mod_whoisd "
-        "version %s, SVN revision %s, BUILT %s %s)",
-        PACKAGE_VERSION, SVN_REV, __DATE__, __TIME__);
+        "version %s, GIT revision %s, BUILT %s %s)",
+        MOD_VERSION, GIT_REVISION, __DATE__, __TIME__);
 
 	return OK;
 }
