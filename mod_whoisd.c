@@ -157,14 +157,14 @@ static const char *usagestr = \
  * is displayed with -q indexes
  */
 static const char *indexlist = \
-"% The folowing object types can be looked up in whois database:\n\
+"% The following object types can be looked up in whois database:\n\
 %    domain, nsset, keyset, contact, registrar.\n\
 % \n\
 % If you don't specify -i option the object is looked up by its primary key.\n\
 % Specify object type by -T option, if you want to narrow the search.\n\
 % \n\
 % List of attribute names which can be used with -i option. Use only the part\n\
-% following the colon. The part preceeding the colon is object type, which is\n\
+% following the colon. The part preceding the colon is object type, which is\n\
 % associated with the attribute.\n\
 % \n\
 % domain:registrant\n\
