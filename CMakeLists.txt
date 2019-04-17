@@ -56,13 +56,15 @@ if(NOT VERSION)
 endif()
 set(TARBALL_FILE_NAME "fred-mod-whoisd-${VERSION}")
 
-if(NOT GIT_PROGRAM)
-    set(REVISION "unknown")
-else()
-    execute_process(COMMAND ${GIT_PROGRAM} "rev-parse" "HEAD"
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                    OUTPUT_VARIABLE RAWREVISION)
-    string(REGEX REPLACE "\n" "" REVISION "${RAWREVISION}")
+if(NOT REVISION)
+    if(NOT GIT_PROGRAM)
+        set(REVISION "unknown")
+    else()
+        execute_process(COMMAND ${GIT_PROGRAM} "rev-parse" "HEAD"
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            OUTPUT_VARIABLE RAWREVISION)
+        string(REGEX REPLACE "\n" "" REVISION "${RAWREVISION}")
+    endif()
 endif()
 
 normalize_path(NORMALIZED_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
@@ -88,8 +90,8 @@ set_default(OBJECTNAME Whois)
 set_default(LOGGER_OBJECTNAME Logger)
 
 set_default(PORT 43)
-set_default(MOD_VERSION ${VERSION})
-set_default(GIT_REVISION ${REVISION})
+set_default(MOD_VERSION "${VERSION}")
+set_default(GIT_REVISION "${REVISION}")
 
 set_default(CONFIG_FILE_NAME 02-fred-mod-whoisd-apache.conf)
 

@@ -1,4 +1,4 @@
-Name:           fred-mod-whoisd
+Name:           %{project_name}
 Version:        %{our_version}
 Release:        %{?our_release}%{!?our_release:1}%{?dist}
 Summary:        FRED - unix whois server as apache module
@@ -33,7 +33,7 @@ CORBA technology as provided by mod_corba apache module.
 %{?scl:scl enable llvm-toolset-7 - << \EOF}
 %global __cmake /opt/rh/llvm-toolset-7/root/usr/bin/cmake
 %endif
-%cmake -DCMAKE_INSTALL_PREFIX=/ -DUSE_USR_PREFIX=1 -DVERSION=%{version} -DIDL_DIR=%{_topdir}/BUILD/idl-%{idl_branch}/idl .
+%cmake -DCMAKE_INSTALL_PREFIX=/ -DUSE_USR_PREFIX=1 -DVERSION=%{version} -DREVISION=%{our_revision} -DIDL_DIR=%{_topdir}/BUILD/idl-%{idl_branch}/idl .
 %make_build
 %if 0%{?centos}
 %{?scl:EOF}
