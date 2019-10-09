@@ -9,7 +9,7 @@ Source0:        %{name}-%{version}.tar.gz
 Source1:        idl-%{idl_branch}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  git, gcc, apr-devel, httpd-devel, ORBit2-devel, doxygen
-%if 0%{?centos}
+%if 0%{?el7}
 BuildRequires: centos-release-scl, llvm-toolset-7-cmake, llvm-toolset-7-build
 %else
 BuildRequires: cmake
@@ -29,13 +29,13 @@ CORBA technology as provided by mod_corba apache module.
 %setup -b 1
 
 %build
-%if 0%{?centos}
+%if 0%{?el7}
 %{?scl:scl enable llvm-toolset-7 - << \EOF}
 %global __cmake /opt/rh/llvm-toolset-7/root/usr/bin/cmake
 %endif
 %cmake -DCMAKE_INSTALL_PREFIX=/ -DUSE_USR_PREFIX=1 -DVERSION=%{version} -DREVISION=%{our_revision} -DIDL_DIR=%{_topdir}/BUILD/idl-%{idl_branch}/idl .
 %make_build
-%if 0%{?centos}
+%if 0%{?el7}
 %{?scl:EOF}
 %endif
 
