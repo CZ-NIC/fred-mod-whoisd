@@ -289,7 +289,7 @@ static void print_intro(apr_bucket_brigade *bb, conn_rec *c,
 			 * if ln is last char in bucket, don't split the bucket
 			 * and defer comment insertion.
 			 */
-			if (pos - str == len - 1) {
+			if ((unsigned long)(pos - str) == len - 1) {
 				pending_comment = 1;
 			}
 			else {
@@ -851,7 +851,7 @@ void whois_log_status(conn_rec *c, service_Logger service,
 static char *read_request(conn_rec *c, int *http_status)
 {
 	char	*buf;   /* buffer for user request */
-	int	 i;
+	unsigned long	 i;
 	apr_size_t	 len;   /* length of request */
 	apr_bucket_brigade *bb;
 	apr_status_t	status;
