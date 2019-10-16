@@ -230,6 +230,7 @@ function(set_common_properties_on_targets)
             PUBLIC "-grecord-gcc-switches"
             PUBLIC "-Wall"
             PUBLIC "-Wextra"
+            PUBLIC "-Wno-date-time"
             PUBLIC "-fdiagnostics-color=auto"
             PUBLIC "-fPIC"
             PUBLIC "-DHAVE_CONFIG_H")
