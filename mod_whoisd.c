@@ -1444,8 +1444,8 @@ static apr_status_t whois_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
  * @param s      Server struct.
  * @return       Status.
  */
-static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
-		apr_pool_t *ptemp, server_rec *s)
+static int whois_postconfig_hook(apr_pool_t *p, __attribute__((unused)) apr_pool_t *plog,
+		__attribute__((unused)) apr_pool_t *ptemp, server_rec *s)
 {
 	whoisd_server_conf *sc;
 
@@ -1487,7 +1487,7 @@ static int whois_postconfig_hook(apr_pool_t *p, apr_pool_t *plog,
  * @param flag    The value.
  * @return        NULL if OK, otherwise a string.
  */
-static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
+static const char *set_whois_protocol(cmd_parms *cmd, __attribute__((unused)) void *dummy, int flag)
 {
 	const char *err;
 	server_rec *s = cmd->server;
@@ -1510,7 +1510,7 @@ static const char *set_whois_protocol(cmd_parms *cmd, void *dummy, int flag)
  * @param a1      The value.
  * @return        NULL if OK, otherwise a string.
  */
-static const char *set_disclaimer_file(cmd_parms *cmd, void *dummy,
+static const char *set_disclaimer_file(cmd_parms *cmd, __attribute__((unused)) void *dummy,
 		const char *a1)
 {
 	char	 buf[101];
@@ -1625,7 +1625,7 @@ static const char *set_logger_object(cmd_parms *cmd, void *dummy,
  * @param name    The value.
  * @return        NULL if OK, otherwise a string.
  */
-static const char *set_whois_object(cmd_parms *cmd, void *dummy,
+static const char *set_whois_object(cmd_parms *cmd, __attribute__((unused)) void *dummy,
 		const char *name)
 {
 	const char *err;
@@ -1674,7 +1674,7 @@ static const command_rec whoisd_cmds[] = {
  * @param p   Pool used for allocations.
  * @param s   Server structure.
  */
-static void *create_whoisd_config(apr_pool_t *p, server_rec *s)
+static void *create_whoisd_config(apr_pool_t *p, __attribute__((unused)) server_rec *s)
 {
 	whoisd_server_conf *sc =
 	    (whoisd_server_conf *) apr_pcalloc(p, sizeof(*sc));
@@ -1687,7 +1687,7 @@ static void *create_whoisd_config(apr_pool_t *p, server_rec *s)
  *
  * @param p   Pool used for allocations.
  */
-static void register_hooks(apr_pool_t *p)
+static void register_hooks(__attribute__((unused)) apr_pool_t *p)
 {
 	static const char * const aszPre[]={ "mod_corba.c", NULL };
 

@@ -231,11 +231,17 @@ function(set_common_properties_on_targets)
             PUBLIC "-Wall"
             PUBLIC "-Wextra"
             PUBLIC "-fdiagnostics-color=auto"
-            PUBLIC "-Wno-unused-parameter"
             PUBLIC "-fPIC"
             PUBLIC "-DHAVE_CONFIG_H")
         target_include_directories(${target_name} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
         target_include_directories(${target_name} PUBLIC ${CMAKE_BINARY_DIR})
+    endforeach()
+endfunction()
+
+function(set_corba_properties_on_targets)
+    foreach(target_name ${ARGN})
+        message(STATUS "setting corba properties on: " ${target_name})
+        target_compile_options(${target_name} PUBLIC "-Wno-unused-parameter")
     endforeach()
 endfunction()
 
@@ -344,6 +350,14 @@ set_common_properties_on_targets(
     corbafilters
     corbaadmin)
 
+set_corba_properties_on_targets(
+    corbaadmin
+    corbafilters
+    corbalogger
+    corbaregistry
+    corbawhois
+    corbadatatypes)
+ 
 install(TARGETS whoisd LIBRARY DESTINATION ${APXS_MODULES})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DATAROOTDIR}/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
 install(DIRECTORY ${CMAKE_BINARY_DIR}/${DOCDIR}/html/ DESTINATION ${DATAROOTDIR}/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
