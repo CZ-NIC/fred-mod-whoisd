@@ -1196,8 +1196,7 @@ whois_log_new_message(service_Logger service,
 {
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
-	int	 ret;
-        ccReg_ObjectReferences *objrefs = NULL;
+	ccReg_ObjectReferences *objrefs = NULL;
 
 	if(properties == NULL) {
 		properties = ccReg_RequestProperties__alloc();
