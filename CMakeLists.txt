@@ -242,7 +242,7 @@ endfunction()
 function(set_corba_properties_on_targets)
     foreach(target_name ${ARGN})
         message(STATUS "setting corba properties on: " ${target_name})
-        target_compile_options(${target_name} 
+        target_compile_options(${target_name}
            PUBLIC "-Wno-unused-const-variable"
            PUBLIC "-Wno-unused-parameter")
     endforeach()
@@ -360,7 +360,7 @@ set_corba_properties_on_targets(
     corbaregistry
     corbawhois
     corbadatatypes)
- 
+
 install(TARGETS whoisd LIBRARY DESTINATION ${APXS_MODULES})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DATAROOTDIR}/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
 install(DIRECTORY ${CMAKE_BINARY_DIR}/${DOCDIR}/html/ DESTINATION ${DATAROOTDIR}/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
