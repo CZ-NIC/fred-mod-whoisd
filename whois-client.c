@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018  CZ.NIC, z. s. p. o.
+ * Copyright (C) 2006-2019  CZ.NIC, z. s. p. o.
  *
  * This file is part of FRED.
  *
@@ -358,7 +358,7 @@ get_contact_by_handle(service_Whois service, const char *handle,
 
 	if(!check_duplicates(T_CONTACT, c_contact->handle, objects, *index_free))
 	{
-		int i = 0;
+		unsigned long i = 0;
 
 		objects[*index_free].type = T_CONTACT;
 		c = &objects[*index_free].obj.c;
@@ -443,7 +443,7 @@ copy_nsset(general_object *obj, ccReg_NSSetDetail *c_nsset)
 	const int 	IP_ADDR_LEN_SEP = IP_ADDR_LEN + 2;
 		/* length of IP address string including separator (`, ') */
 	obj_nsset	*n;
-	int	 	i, j;
+	unsigned long	 	i, j;
 
 	/* copy nsset data */
 	obj->type = T_NSSET;
@@ -496,7 +496,7 @@ copy_keyset(general_object *obj, ccReg_KeySetDetail  *c_keyset)
 	obj_keyset *k;
 	keyset_dsrecord *ds;
 	keyset_dnskey *key;
-	int	 i, len;
+	unsigned long i, len;
 
 	/* copy keyset data */
 	obj->type = T_KEYSET;
@@ -756,7 +756,7 @@ get_nsset_by_attr(service_Whois service,
 	CORBA_Environment	 ev[1];
 	ccReg_NSSetDetails	*c_nssets; /* nsset details */
 	int	 retr;  /* retry counter */
-	int	 i;
+	unsigned long i;
 	int	 ret;
 
 	/* retry loop */
@@ -824,7 +824,7 @@ get_keyset_by_attr(service_Whois service,
 	CORBA_Environment	 ev[1];
 	ccReg_KeySetDetails	*c_keysets; /* keyset details */
 	int	 retr;  /* retry counter */
-	int	 i;
+	unsigned long i;
 	int	 ret;
 
 	/* retry loop */
@@ -879,7 +879,8 @@ get_keyset_by_attr(service_Whois service,
 static int
 translate_status(service_Whois service, general_object *objects, char *errmsg)
 {
-	int	 i, j, k;
+	int	 i, j;
+	unsigned long k;
 	int	 retr;
 	obj_domain	*d;
 	CORBA_Environment	 ev[1];
@@ -938,7 +939,7 @@ static void
 copy_domain(general_object *obj, ccReg_DomainDetail *c_domain)
 {
 	obj_domain	*d;
-	int	 i;
+	unsigned long i;
 
 	/* copy domain data */
 	obj->type = T_DOMAIN;
@@ -1132,7 +1133,7 @@ get_domain_by_attr(service_Whois service,
 	CORBA_Environment	 ev[1];
 	ccReg_DomainDetails	*c_domains; /* domain details */
 	int	 retr;  /* retry counter */
-	int	 i;
+	unsigned long i;
 	int	 ret;
 
 	/* retry loop */
@@ -1195,8 +1196,7 @@ whois_log_new_message(service_Logger service,
 {
 	CORBA_Environment	 ev[1];
 	int	 retr;  /* retry counter */
-	int	 ret;
-        ccReg_ObjectReferences *objrefs = NULL;
+	ccReg_ObjectReferences *objrefs = NULL;
 
 	if(properties == NULL) {
 		properties = ccReg_RequestProperties__alloc();
