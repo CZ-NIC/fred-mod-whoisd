@@ -82,7 +82,8 @@ if(NOT REVISION)
     endif()
 endif()
 
-set_default_path(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/${USR_SHARE_PREFIX}/share/)
+set_default_path(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/${USR_SHARE_PREFIX}/share)
+normalize_path(DATAROOTDIR ${DATAROOTDIR})
 
 set_default(WITH_UNITTESTS 1)
 
@@ -183,6 +184,7 @@ string(STRIP ${APXS_MODULES} APXS_MODULES)
 string(REGEX REPLACE "^/" "" APXS_MODULES ${APXS_MODULES})
 
 set_default(MODULE_INSTALLDIR ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES})
+normalize_path(MODULE_INSTALLDIR ${MODULE_INSTALLDIR})
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_BINARY_DIR}/config.h)
 configure_file(
@@ -340,13 +342,13 @@ set_corba_properties_on_targets(
     corba_whois
     corba_datatypes)
 
-install(TARGETS whoisd LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES})
+install(TARGETS whoisd LIBRARY DESTINATION ${MODULE_INSTALLDIR})
 install(DIRECTORY ${CMAKE_BINARY_DIR}/conf/ DESTINATION ${DATAROOTDIR}/fred-mod-whoisd FILES_MATCHING PATTERN "*.conf")
 if(TARGET doc)
     install(DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY}/html/ DESTINATION ${DATAROOTDIR}/doc/fred-mod-whoisd FILES_MATCHING PATTERN "*")
 endif()
 
-add_custom_target(uninstall_module COMMAND rm ${CMAKE_INSTALL_PREFIX}/${APXS_MODULES}/mod_whoisd.so)
+add_custom_target(uninstall_module COMMAND rm ${MODULE_INSTALLDIR}/mod_whoisd.so)
 add_custom_target(uninstall_configuration COMMAND rm ${DATAROOTDIR}/fred-mod-whoisd/${CONFIG_FILE_NAME})
 if(TARGET doc)
     add_custom_target(make_doc ALL DEPENDS doc)
