@@ -1,3 +1,7 @@
+2020-12-02 (3.12.2)
+
+    * Fix fedora RPM build
+
 2019-11-20 (3.12.1)
 
     * Update spec file for F31 and Centos/RHEL 8
