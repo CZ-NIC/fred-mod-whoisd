@@ -185,17 +185,9 @@ Registrar template
 Schema of object relations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block::
+.. image:: doc/fred_registrable_relations.png
+   :align: center
 
-             DOMAIN-------------------NSSET
-            /  |   \                 /  |
-           /   |    \               /   |
- REGISTRANT ADMIN-C  \             /   TECH-C
-          \  TEMP-C   \           /    /
-           \       \   \         /    /
-            \       \   \       /    /
-             \       \__ \     / ___/
-              \_________REGISTRAR   
 
 Registrant, admin-c, temp-c and tech-c are all of the same type - the contact.
 The tree is rooted at the domain object and the dependency links run from there
