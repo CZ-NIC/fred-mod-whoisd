@@ -27,6 +27,7 @@ There are several object types:
 
 * domain
 * nsset
+* keyset
 * contact
 * registrar
 
@@ -85,8 +86,6 @@ Domain template
 +---------------+--------------+-------------+---------------+
 | admin-c:      | [optional]   | [multiple]  | [inverse key] |
 +---------------+--------------+-------------+---------------+
-| temp-c:       | [optional]   | [multiple]  | [inverse key] |
-+---------------+--------------+-------------+---------------+
 | nsset:        | [optional]   | [single]    | [inverse key] |
 +---------------+--------------+-------------+---------------+
 | registrar:    | [mandatory]  | [single]    | [ ]           |
@@ -118,6 +117,24 @@ Nsset template
 | created:      | [mandatory]  | [single]    | [ ]           |
 +---------------+--------------+-------------+---------------+
 | changed:      | [optional]   | [single]    | [ ]           |
++---------------+--------------+-------------+---------------+
+
+Keyset template
+---------------
+
++---------------+--------------+-------------+---------------+
++---------------+--------------+-------------+---------------+
+| keyset:       | [mandatory]  | [single]    | [primary key] |
++---------------+--------------+-------------+---------------+
+| dnskey:       | [mandatory]  | [multiple]  |               |
++---------------+--------------+-------------+---------------+
+| tech-c:       | [mandatory]  | [multiple]  | [inverse key] |
++---------------+--------------+-------------+---------------+
+| registrar:    | [mandatory]  | [single]    |               |
++---------------+--------------+-------------+---------------+
+| created:      | [mandatory]  | [single]    |               |
++---------------+--------------+-------------+---------------+
+| changed:      | [optional]   | [single]    |               |
 +---------------+--------------+-------------+---------------+
 
 Contact template
@@ -166,19 +183,11 @@ Registrar template
 Schema of object relations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block::
+.. image:: doc/fred_registrable_relations.png
+   :align: center
 
-             DOMAIN-------------------NSSET
-            /  |   \                 /  |
-           /   |    \               /   |
- REGISTRANT ADMIN-C  \             /   TECH-C
-          \  TEMP-C   \           /    /
-           \       \   \         /    /
-            \       \   \       /    /
-             \       \__ \     / ___/
-              \_________REGISTRAR   
 
-Registrant, admin-c, temp-c and tech-c are all of the same type - the contact.
+Registrant, admin-c and tech-c are all of the same type - the contact.
 The tree is rooted at the domain object and the dependency links run from there
 to registrar.  When displaying information about an object all objects which
 are referenced in that object are displayed too and so on recursivelly. There
@@ -193,7 +202,6 @@ domain
 * 1 domain
 * 1 registrant
 * n admin-c objects
-* n temp-c objects
 * 1 nsset (optional)
 * n tech-c objects (only if there is nsset)
 
@@ -309,10 +317,4 @@ Questions and answers
       only a subset of switches and options implemented by RIPE server. If you
       use an option which the RIPE server understands to, but our doesn't, than the
       server returns error and help message.
-
-.. topic:: Q: What is the meaning of attribute temp-c?
-
-   A: It is a mysterious attribute of domain, which was introduce to ease
-      transition from old domain registration model to new one. It is a burden of
-      domains registered in old model. The new domains cannot have this attribute.
 
