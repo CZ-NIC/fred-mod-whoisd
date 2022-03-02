@@ -1,4 +1,4 @@
-FROM fedora:29
+FROM fedora:rawhide
 RUN dnf -y clean all                  \
         && dnf -y update              \
         && dnf -y upgrade             \
